@@ -1,0 +1,5 @@
+Local_dried
+Local_healthy
+Local_unhealthy
+Local_yellow
+background_not_a_leaf

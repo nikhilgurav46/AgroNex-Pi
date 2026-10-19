@@ -1,0 +1,2182 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AgroNex-Pi — Cloud Command Center</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    :root {
+      --bg-base: #070d14;
+      --bg-card: rgba(14, 25, 41, 0.65);
+      --bg-card-hover: rgba(20, 35, 58, 0.75);
+      --border-card: rgba(56, 189, 248, 0.12);
+      --border-glow: rgba(16, 185, 129, 0.35);
+      --emerald-glow: #10b981;
+      --emerald-soft: rgba(16, 185, 129, 0.15);
+      --cyan-glow: #06b6d4;
+      --amber-glow: #f59e0b;
+      --rose-glow: #f43f5e;
+      --text-main: #f1f5f9;
+      --text-muted: #94a3b8;
+      --text-sub: #64748b;
+      --radius-lg: 20px;
+      --radius-md: 14px;
+      --radius-sm: 8px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: var(--bg-base);
+      color: var(--text-main);
+      min-height: 100vh;
+      overflow-x: hidden;
+      background-image:
+        radial-gradient(ellipse 80% 50% at 50% -20%, rgba(16, 185, 129, 0.15), transparent 70%),
+        radial-gradient(ellipse 60% 40% at 90% 80%, rgba(6, 182, 212, 0.08), transparent 60%),
+        radial-gradient(ellipse 50% 30% at 10% 60%, rgba(99, 102, 241, 0.06), transparent 50%);
+      background-attachment: fixed;
+    }
+
+    /* Top Cloud Sync Bar */
+    .cloud-banner {
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border-card);
+      padding: 10px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 13px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .cloud-status {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .pulse-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #94a3b8;
+      box-shadow: 0 0 0 rgba(148, 163, 184, 0.4);
+      transition: all 0.3s ease;
+    }
+
+    .pulse-dot.online {
+      background: var(--emerald-glow);
+      box-shadow: 0 0 10px var(--emerald-glow);
+      animation: pulse 2s infinite;
+    }
+
+    .pulse-dot.offline {
+      background: var(--rose-glow);
+      box-shadow: 0 0 10px var(--rose-glow);
+    }
+
+    @keyframes pulse {
+      0% {
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+      }
+
+      70% {
+        box-shadow: 0 0 0 10px rgba(16, 185, 129, 0);
+      }
+
+      100% {
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+      }
+    }
+
+    .endpoint-badge {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      color: #38bdf8;
+      background: rgba(56, 189, 248, 0.1);
+      padding: 4px 10px;
+      border-radius: var(--radius-sm);
+      border: 1px solid rgba(56, 189, 248, 0.2);
+      max-width: 320px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      cursor: pointer;
+    }
+
+    /* Container Layout */
+    .container {
+      max-width: 1360px;
+      margin: 0 auto;
+      padding: 24px 20px 60px 20px;
+    }
+
+    /* Header */
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 20px;
+      margin-bottom: 28px;
+    }
+
+    .brand-title {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .brand-logo {
+      width: 48px;
+      height: 48px;
+      background: linear-gradient(135deg, #10b981, #059669);
+      border-radius: 14px;
+      display: grid;
+      place-items: center;
+      font-size: 26px;
+      box-shadow: 0 8px 24px rgba(16, 185, 129, 0.35);
+    }
+
+    .brand-text h1 {
+      font-size: 26px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      background: linear-gradient(90deg, #ffffff, #cbd5e1);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .brand-text p {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    /* Buttons */
+    .btn {
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 10px 18px;
+      border-radius: var(--radius-md);
+      border: 1px solid transparent;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      backdrop-filter: blur(8px);
+    }
+
+    .btn:hover {
+      transform: translateY(-2px);
+    }
+
+    .btn:active {
+      transform: translateY(0);
+    }
+
+    .btn-emerald {
+      background: linear-gradient(135deg, #10b981, #059669);
+      color: #ffffff;
+      box-shadow: 0 4px 16px rgba(16, 185, 129, 0.3);
+    }
+
+    .btn-emerald:hover {
+      box-shadow: 0 6px 20px rgba(16, 185, 129, 0.5);
+    }
+
+    .btn-danger {
+      background: linear-gradient(135deg, #ef4444, #dc2626);
+      color: #ffffff;
+      box-shadow: 0 4px 16px rgba(239, 68, 68, 0.3);
+    }
+
+    .btn-outline {
+      background: rgba(255, 255, 255, 0.05);
+      border-color: rgba(255, 255, 255, 0.15);
+      color: var(--text-main);
+    }
+
+    .btn-outline:hover {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: rgba(255, 255, 255, 0.25);
+    }
+
+    /* Glass Cards */
+    .glass-card {
+      background: var(--bg-card);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--border-card);
+      border-radius: var(--radius-lg);
+      padding: 24px;
+      transition: all 0.3s ease;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .glass-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.15), transparent);
+    }
+
+    .glass-card:hover {
+      background: var(--bg-card-hover);
+      border-color: rgba(56, 189, 248, 0.22);
+      transform: translateY(-3px);
+    }
+
+    /* Grid Layouts */
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 20px;
+      margin-bottom: 28px;
+    }
+
+    .metric-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+
+    .metric-label {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+    }
+
+    .metric-icon {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      display: grid;
+      place-items: center;
+      font-size: 18px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .metric-val {
+      font-size: 34px;
+      font-weight: 700;
+      letter-spacing: -1px;
+      color: #ffffff;
+      line-height: 1.1;
+      margin-bottom: 8px;
+    }
+
+    .metric-sub {
+      font-size: 12px;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* Progress bar */
+    .bar-bg {
+      width: 100%;
+      height: 7px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 10px;
+      margin-top: 12px;
+      overflow: hidden;
+    }
+
+    .bar-fill {
+      height: 100%;
+      border-radius: 10px;
+      background: linear-gradient(90deg, #10b981, #06b6d4);
+      width: 0%;
+      transition: width 0.6s ease;
+    }
+
+    /* Main Dual Split Section */
+    .split-section {
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      gap: 24px;
+      margin-bottom: 28px;
+    }
+
+    @media (max-width: 1024px) {
+      .split-section {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Compass Widget Styles */
+    .compass-dial {
+      width: 160px;
+      height: 160px;
+      border-radius: 50%;
+      background: radial-gradient(circle, #0f172a 40%, #020617 100%);
+      border: 3px solid rgba(56, 189, 248, 0.3);
+      box-shadow: 0 0 25px rgba(6, 182, 212, 0.2), inset 0 0 15px rgba(0,0,0,0.8);
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 6px 0 10px 0;
+    }
+    .compass-needle {
+      position: absolute;
+      width: 6px;
+      height: 120px;
+      top: 20px;
+      left: calc(50% - 3px);
+      transform-origin: 3px 60px;
+      transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+      pointer-events: none;
+    }
+    .needle-north {
+      width: 0;
+      height: 0;
+      border-left: 6px solid transparent;
+      border-right: 6px solid transparent;
+      border-bottom: 50px solid #ef4444;
+      position: absolute;
+      top: 0;
+      left: -3px;
+      filter: drop-shadow(0 0 6px rgba(239,68,68,0.8));
+    }
+    .needle-south {
+      width: 0;
+      height: 0;
+      border-left: 6px solid transparent;
+      border-right: 6px solid transparent;
+      border-top: 50px solid #38bdf8;
+      position: absolute;
+      bottom: 0;
+      left: -3px;
+      filter: drop-shadow(0 0 6px rgba(56,189,248,0.8));
+    }
+    .needle-center-dot {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #f8fafc;
+      border: 2px solid #020617;
+      position: absolute;
+      top: 53px;
+      left: -4px;
+      z-index: 5;
+    }
+    .compass-marker {
+      position: absolute;
+      font-size: 10px;
+      font-weight: 800;
+      color: var(--text-muted);
+      text-align: center;
+      line-height: 1.1;
+    }
+    .marker-n { top: 6px; left: 50%; transform: translateX(-50%); color: #ef4444; }
+    .marker-s { bottom: 6px; left: 50%; transform: translateX(-50%); color: #38bdf8; }
+    .marker-e { right: 8px; top: 50%; transform: translateY(-50%); }
+    .marker-w { left: 8px; top: 50%; transform: translateY(-50%); }
+    .compass-hud-readout {
+      text-align: center;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* Remote Controls Panel */
+    .panel-title {
+      font-size: 17px;
+      font-weight: 600;
+      margin-bottom: 18px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .ctrl-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 14px 16px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: var(--radius-md);
+      margin-bottom: 12px;
+    }
+
+    .ctrl-meta h4 {
+      font-size: 14px;
+      font-weight: 600;
+      color: #f8fafc;
+    }
+
+    .ctrl-meta p {
+      font-size: 12px;
+      color: var(--text-sub);
+    }
+
+    .pill-badge {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 20px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .pill-green {
+      background: rgba(16, 185, 129, 0.2);
+      color: #34d399;
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+
+    .pill-red {
+      background: rgba(239, 68, 68, 0.2);
+      color: #f87171;
+      border: 1px solid rgba(239, 68, 68, 0.3);
+    }
+
+    .pill-amber {
+      background: rgba(245, 158, 11, 0.2);
+      color: #fbbf24;
+      border: 1px solid rgba(245, 158, 11, 0.3);
+    }
+
+    .pill-blue {
+      background: rgba(56, 189, 248, 0.2);
+      color: #38bdf8;
+      border: 1px solid rgba(56, 189, 248, 0.3);
+    }
+
+    /* Disease Scan Feed */
+    .scan-gallery {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 18px;
+    }
+
+    .scan-card {
+      background: rgba(15, 23, 42, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      transition: all 0.3s ease;
+    }
+
+    .scan-card:hover {
+      border-color: rgba(16, 185, 129, 0.35);
+      transform: translateY(-2px);
+    }
+
+    .scan-img-box {
+      width: 100%;
+      height: 180px;
+      background: #020617;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .scan-img-box img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transition: transform 0.4s ease;
+    }
+
+    .scan-card:hover .scan-img-box img {
+      transform: scale(1.04);
+    }
+
+    .scan-card-body {
+      padding: 16px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .scan-time {
+      font-size: 11px;
+      color: var(--text-sub);
+      font-family: 'JetBrains Mono', monospace;
+      margin-bottom: 6px;
+    }
+
+    .scan-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: #ffffff;
+      margin-bottom: 4px;
+    }
+
+    .scan-detail {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-bottom: 12px;
+      line-height: 1.4;
+    }
+
+    .cure-box {
+      margin-top: auto;
+      background: rgba(16, 185, 129, 0.07);
+      border: 1px solid rgba(16, 185, 129, 0.2);
+      border-radius: var(--radius-sm);
+      padding: 10px;
+      font-size: 11px;
+      color: #cbd5e1;
+      line-height: 1.4;
+    }
+
+    .cure-box strong {
+      color: #34d399;
+      display: block;
+      margin-bottom: 2px;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
+
+    /* Toast Notification */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: rgba(15, 23, 42, 0.95);
+      border: 1px solid var(--border-glow);
+      backdrop-filter: blur(12px);
+      padding: 14px 20px;
+      border-radius: var(--radius-md);
+      font-size: 13px;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+      transform: translateY(100px);
+      opacity: 0;
+      transition: all 0.3s ease;
+      z-index: 1000;
+    }
+
+    .toast.show {
+      transform: translateY(0);
+      opacity: 1;
+    }
+
+    /* Modal for Settings */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(8px);
+      display: grid;
+      place-items: center;
+      z-index: 200;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+
+    .modal-overlay.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .modal-content {
+      background: #0f172a;
+      border: 1px solid var(--border-card);
+      border-radius: var(--radius-lg);
+      width: 90%;
+      max-width: 480px;
+      padding: 28px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+    }
+
+    .modal-title {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .modal-sub {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-bottom: 20px;
+      line-height: 1.4;
+    }
+
+    .input-field {
+      width: 100%;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: #ffffff;
+      padding: 12px 14px;
+      border-radius: var(--radius-md);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      margin-bottom: 16px;
+      outline: none;
+    }
+
+    .input-field:focus {
+      border-color: var(--emerald-glow);
+    }
+
+    /* ── Tab Navigation ── */
+    .tab-nav {
+      display: flex !important;
+      gap: 6px !important;
+      margin-bottom: 24px !important;
+      background: rgba(15, 23, 42, 0.75) !important;
+      backdrop-filter: blur(12px) !important;
+      border: 1px solid var(--border-card) !important;
+      border-radius: var(--radius-lg) !important;
+      padding: 6px !important;
+      flex-wrap: wrap !important;
+    }
+    .tab-btn {
+      font-family: inherit !important;
+      font-size: 13px !important;
+      font-weight: 600 !important;
+      padding: 10px 18px !important;
+      border-radius: var(--radius-md) !important;
+      border: 1px solid transparent !important;
+      cursor: pointer !important;
+      background: transparent !important;
+      background-color: transparent !important;
+      -webkit-appearance: none !important;
+      -moz-appearance: none !important;
+      appearance: none !important;
+      color: var(--text-muted) !important;
+      transition: all 0.2s ease !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      gap: 8px !important;
+      white-space: nowrap !important;
+      outline: none !important;
+    }
+    .tab-btn:hover {
+      background-color: rgba(255, 255, 255, 0.08) !important;
+      color: var(--text-main) !important;
+    }
+    .tab-btn.active {
+      background-color: rgba(16, 185, 129, 0.2) !important;
+      color: #34d399 !important;
+      border: 1px solid rgba(16, 185, 129, 0.45) !important;
+      box-shadow: 0 0 12px rgba(16, 185, 129, 0.15) !important;
+    }
+    .tab-panel {
+      display: none !important;
+    }
+    .tab-panel.active {
+      display: block !important;
+      animation: fadeInTab 0.3s ease !important;
+    }
+    @keyframes fadeInTab { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
+
+    /* ── Blog Cards ── */
+    .blog-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 18px;
+      margin-bottom: 28px;
+    }
+    .blog-card {
+      text-decoration: none;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      transition: all 0.25s ease;
+    }
+    .blog-card:hover { transform: translateY(-3px); border-color: rgba(56, 189, 248, 0.35) !important; }
+    .blog-src {
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: var(--cyan-glow);
+    }
+    .blog-title { font-size: 15px; font-weight: 700; color: #f8fafc; line-height: 1.35; }
+    .blog-snippet { font-size: 12.5px; color: var(--text-muted); line-height: 1.5; }
+
+    /* ── Disease Library ── */
+    .plant-chips {
+      display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 18px;
+    }
+    .plant-chip {
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 8px 16px;
+      border-radius: 999px;
+      border: 1px solid var(--border-card);
+      background: rgba(255,255,255,0.04);
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .plant-chip.active, .plant-chip:hover {
+      background: rgba(16,185,129,0.18);
+      color: #34d399;
+      border-color: rgba(16,185,129,0.4);
+    }
+    .disease-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 18px;
+    }
+    .disease-card { padding: 20px 22px; }
+    .disease-card h4 { font-size: 15.5px; font-weight: 700; color: #f8fafc; margin: 0 0 6px 0; }
+    .dis-badge {
+      display: inline-block;
+      font-size: 10.5px; font-weight: 800;
+      padding: 3px 10px; border-radius: 999px; margin-bottom: 10px;
+    }
+    .dis-healthy { background: rgba(16,185,129,0.18); color: #34d399; }
+    .dis-disease { background: rgba(239,68,68,0.18); color: #f87171; }
+    .disease-card dt { font-size: 11px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.5px; color: var(--text-sub); margin-top: 10px; }
+    .disease-card dd { margin: 3px 0 0 0; font-size: 13px; color: var(--text-muted); line-height: 1.45; }
+
+    /* ── Detect Tab ── */
+    .detect-wrap {
+      display: grid;
+      grid-template-columns: 340px 1fr;
+      gap: 22px;
+      margin-bottom: 28px;
+    }
+    @media (max-width: 860px) { .detect-wrap { grid-template-columns: 1fr; } }
+    .detect-preview {
+      width: 100%; aspect-ratio: 4/3;
+      border-radius: var(--radius-md);
+      background: rgba(255,255,255,0.03);
+      border: 1px dashed rgba(255,255,255,0.12);
+      display: flex; align-items: center; justify-content: center;
+      overflow: hidden; margin-bottom: 14px;
+    }
+    .detect-preview img { width: 100%; height: 100%; object-fit: cover; }
+    .detect-preview span { color: var(--text-muted); font-size: 13px; }
+    .btn-full { width: 100%; margin-top: 10px; padding: 12px 16px; font-size: 14px; border-radius: var(--radius-md); }
+    .result-card { min-height: 140px; padding: 22px; }
+    .result-empty { color: var(--text-muted); font-size: 13.5px; line-height: 1.5; }
+    .conf-bar { height: 8px; border-radius: 99px; background: rgba(255,255,255,0.07); overflow: hidden; margin: 12px 0; }
+    .conf-fill { height: 100%; border-radius: 99px; background: linear-gradient(90deg, #10b981, #06b6d4); transition: width 0.6s ease; }
+    .result-dl dt { font-size: 11px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.5px; color: var(--text-sub); margin-top: 10px; }
+    .result-dl dd { margin: 3px 0 0 0; font-size: 13.5px; color: var(--text-muted); line-height: 1.45; }
+    .saved-ok { font-size: 12px; color: #34d399; font-weight: 700; margin-top: 12px; }
+    .mini-scans {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 12px;
+      margin-top: 22px;
+    }
+    .mini-thumb { text-align: center; font-size: 12px; padding: 10px; }
+    .mini-thumb img { width:100%; aspect-ratio:1; object-fit:cover; border-radius:10px; margin-bottom:6px; }
+    .spinner-sm {
+      width: 22px; height: 22px; border-radius: 50%;
+      border: 3px solid rgba(255,255,255,0.1);
+      border-top-color: #10b981;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+
+<body>
+
+  <!-- Cloud Top Header -->
+  <div class="cloud-banner">
+    <div class="cloud-status">
+      <div id="connectionDot" class="pulse-dot"></div>
+      <span id="connectionText" style="font-weight: 600;">Connecting to AWS Gateway...</span>
+      <span id="lastSyncTime" style="color: var(--text-sub); margin-left: 6px;"></span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 10px;">
+      <span class="pill-badge pill-green" id="modePill" style="cursor: pointer; font-size: 11px; padding: 4px 10px;" onclick="toggleMode()" title="Click to toggle between Cloud (AWS) and Local (Direct Pi) API">☁️ Cloud (AWS)</span>
+      <span style="color: var(--text-sub); font-size: 12px;">Endpoint:</span>
+      <div class="endpoint-badge" id="endpointBadge" onclick="openSettings()" title="Click to edit API Gateway URL">
+        Loading...
+      </div>
+      <button class="btn btn-outline" style="padding: 4px 10px; font-size: 12px;" onclick="openSettings()">⚙️
+        Configure</button>
+    </div>
+  </div>
+
+  <div class="container">
+
+    <!-- Header -->
+    <header>
+      <div class="brand-title">
+        <div class="brand-logo">🌱</div>
+        <div class="brand-text">
+          <h1>AgroNex-Pi Cloud Command Center</h1>
+          <p>Autonomous Mobile Robot Telemetry • Disease Analytics • AWS Cloud Relay</p>
+        </div>
+      </div>
+      <div class="header-actions">
+        <div class="pill-badge pill-blue" id="fsmBadge" style="padding: 8px 14px; font-size: 13px;">
+          FSM: CONNECTING
+        </div>
+        <button class="btn btn-emerald" onclick="sendCommand('scan')">
+          📷 Trigger Scan
+        </button>
+        <button class="btn btn-danger" onclick="sendCommand('emergency_stop')">
+          🛑 E-STOP
+        </button>
+        <button class="btn btn-outline" onclick="sendCommand('resume')">
+          🔄 Clear E-Stop
+        </button>
+      </div>
+    </header>
+
+    <!-- Tab Navigation -->
+    <nav class="tab-nav" id="tabNav">
+      <button class="tab-btn active" data-tab="dashboard" id="tab-dashboard" onclick="switchTab('dashboard')">📊 Dashboard</button>
+      <button class="tab-btn" data-tab="blogs" id="tab-blogs" onclick="switchTab('blogs')">📰 Farmer Blogs</button>
+      <button class="tab-btn" data-tab="library" id="tab-library" onclick="switchTab('library')">🌿 Disease Library</button>
+      <button class="tab-btn" data-tab="detect" id="tab-detect" onclick="switchTab('detect')">📷 Disease Detection</button>
+    </nav>
+
+    <!-- ====== TAB: DASHBOARD (existing content wrapped) ====== -->
+    <div class="tab-panel active" id="panel-dashboard">
+
+    <!-- Top Telemetry Metrics Grid -->
+    <div class="metrics-grid">
+
+      <!-- Soil Moisture -->
+      <div class="glass-card">
+        <div class="metric-header">
+          <span class="metric-label">Soil Moisture</span>
+          <div class="metric-icon" style="color: #38bdf8;">💧</div>
+        </div>
+        <div class="metric-val" id="soilVal">--%</div>
+        <div class="metric-sub" id="soilStatus">Reading ADC probe...</div>
+        <div class="bar-bg">
+          <div class="bar-fill" id="soilBar" style="width: 0%;"></div>
+        </div>
+      </div>
+
+      <!-- Temperature & Humidity -->
+      <div class="glass-card">
+        <div class="metric-header">
+          <span class="metric-label">Atmosphere</span>
+          <div class="metric-icon" style="color: #f59e0b;">🌡️</div>
+        </div>
+        <div class="metric-val" id="tempVal">--°C</div>
+        <div class="metric-sub">
+          <span>Relative Humidity:</span>
+          <strong id="humVal" style="color: #f8fafc;">--%</strong>
+        </div>
+        <div class="bar-bg">
+          <div class="bar-fill" id="humBar" style="width: 0%; background: linear-gradient(90deg, #f59e0b, #ec4899);">
+          </div>
+        </div>
+      </div>
+
+      <!-- Navigation & Compass -->
+      <div class="glass-card">
+        <div class="metric-header">
+          <span class="metric-label">Navigation & Heading</span>
+          <div class="metric-icon" style="color: #a855f7;">🧭</div>
+        </div>
+        <div class="metric-val" id="headingVal">--°</div>
+        <div class="metric-sub" id="gpsStatus">GPS Fix: Searching satellites...</div>
+        <div style="margin-top: 10px; font-size: 12px;">
+          <a id="mapsLink" href="#" target="_blank" style="color: #38bdf8; text-decoration: none; display: none;">
+            📍 Open Location in Google Maps ↗
+          </a>
+        </div>
+      </div>
+
+      <!-- Water Reservoir Level (HW-038) -->
+      <div class="glass-card">
+        <div class="metric-header">
+          <span class="metric-label">Water Reservoir</span>
+          <div class="metric-icon" style="color: #06b6d4;">🚰</div>
+        </div>
+        <div class="metric-val" id="waterVal">--%</div>
+        <div class="metric-sub" id="waterStatus">Checking tank level...</div>
+        <div class="bar-bg">
+          <div class="bar-fill" id="waterBar" style="width: 0%; background: linear-gradient(90deg, #06b6d4, #3b82f6);"></div>
+        </div>
+      </div>
+
+      <!-- Chassis & Actuators Status -->
+      <div class="glass-card">
+        <div class="metric-header">
+          <span class="metric-label">Active Subsystems</span>
+          <div class="metric-icon" style="color: #10b981;">⚡</div>
+        </div>
+        <div class="metric-val" style="font-size: 24px; margin-top: 4px;" id="actuatorSummary">
+          Standby
+        </div>
+        <div style="margin-top: 14px; display: flex; gap: 8px; flex-wrap: wrap;">
+          <span class="pill-badge pill-red" id="pumpPill">Pump OFF</span>
+          <span class="pill-badge pill-red" id="cutterPill">Cutter OFF</span>
+          <span class="pill-badge pill-green" id="cameraPill">CSI Auto-Watch</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Live Rover Camera Stream Section -->
+    <div class="glass-card" style="margin-bottom: 28px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
+        <h3 class="panel-title" style="margin-bottom: 0;">
+          <span>📹</span> Live Rover Camera Feed
+        </h3>
+        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+          <span class="pill-badge pill-amber" id="camModeBadge">☁️ AWS Snapshot Mode</span>
+          <span class="pill-badge pill-green" id="streamStatusBadge">● CONNECTING...</span>
+          <span style="font-size: 11px; color: var(--text-muted);" id="snapshotAge"></span>
+          <button class="btn btn-outline" style="padding: 6px 12px; font-size: 12px;" onclick="toggleLiveFeed()" id="toggleStreamBtn">⏸ Pause</button>
+          <button class="btn btn-emerald" style="padding: 6px 12px; font-size: 12px;" onclick="captureSnapshot()">📸 Snapshot</button>
+        </div>
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr 320px; gap: 20px; align-items: stretch;">
+        <div style="position: relative; background: #020617; border-radius: var(--radius-md); overflow: hidden; border: 1px solid rgba(255,255,255,0.1); min-height: 320px; display: flex; align-items: center; justify-content: center;">
+          <img id="liveFeedImg" src="" alt="Live Camera Feed" style="width: 100%; height: 100%; object-fit: contain; max-height: 440px; display: none;" onerror="handleStreamError(this)" />
+          <div id="streamOverlay" style="position: absolute; top: 12px; left: 12px; display: flex; gap: 8px; z-index: 10;">
+            <span class="pill-badge pill-red" style="animation: pulse 1.5s infinite;">● ON AIR</span>
+            <span class="pill-badge pill-blue" id="streamFpsBadge">1-Min Refresh</span>
+          </div>
+          <div id="streamFallbackNotice" style="text-align: center; color: var(--text-muted); padding: 30px;">
+            <div style="font-size: 40px; margin-bottom: 10px;">📷</div>
+            <div style="font-size: 14px; font-weight: 600; color: #f1f5f9; margin-bottom: 6px;">Camera Feed Loading...</div>
+            <p style="font-size: 12px; line-height: 1.5;">
+              <strong>Cloud (AWS) mode:</strong> Pi uploads JPEG snapshots every 1 min via AWS and stays persistent.<br>
+              <strong>Local mode:</strong> Switch to 🤖 Local Pi to get live MJPEG stream.
+            </p>
+            <button class="btn btn-outline" style="margin-top: 12px; font-size: 12px; padding: 6px 12px;" onclick="retryStream()">↻ Reload Feed</button>
+          </div>
+        </div>
+        <div style="display: flex; flex-direction: column; justify-content: space-between; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: var(--radius-md); padding: 18px;">
+          <div>
+            <h4 style="font-size: 14px; font-weight: 700; color: #f8fafc; margin-bottom: 10px;">Camera Vision Telemetry</h4>
+            <div style="font-size: 12.5px; color: var(--text-muted); line-height: 1.8;">
+              <p>• <strong>Sensor:</strong> Raspberry Pi CSI Camera</p>
+              <p>• <strong>Cloud Mode:</strong> JPEG snapshot via AWS S3 (~1m persistent)</p>
+              <p>• <strong>Local Mode:</strong> MJPEG stream direct (real-time)</p>
+              <p>• <strong>AI Inference:</strong> Leaf CNN on Raspberry Pi</p>
+              <p>• <strong>Water Interlock:</strong> HW-038 safety check active</p>
+            </div>
+          </div>
+          <div style="margin-top: 16px;">
+            <div style="padding: 10px; background: rgba(6,182,212,0.08); border-radius: var(--radius-sm); border: 1px solid rgba(6,182,212,0.2); margin-bottom: 8px;">
+              <div style="font-size: 11px; color: #06b6d4; font-weight: 700; margin-bottom: 3px;">☁️ AWS Cloud Mode</div>
+              <div style="font-size: 11px; color: #cbd5e1; line-height: 1.4;">Pi uploads camera snapshot to S3 every 1 minute. The image stays locked on screen without flickering.</div>
+            </div>
+            <div style="padding: 10px; background: rgba(16,185,129,0.08); border-radius: var(--radius-sm); border: 1px solid rgba(16,185,129,0.2);">
+              <div style="font-size: 11px; color: #34d399; font-weight: 700; margin-bottom: 3px;">🤖 Local Pi Mode</div>
+              <div style="font-size: 11px; color: #cbd5e1; line-height: 1.4;">Switch to Local in ⚙️ Configure for true real-time MJPEG stream on same WiFi.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- Live Rover GPS Map & Compass Directional Steering Console -->
+    <div class="glass-card" style="margin-bottom: 28px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
+        <h3 class="panel-title" style="margin-bottom: 0;">
+          <span>🗺️</span> Rover Live GPS Location &amp; Compass Navigation
+        </h3>
+        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+          <span class="pill-badge pill-green" id="gpsFixBadge">● GPS FIX SEARCHING</span>
+          <span class="pill-badge pill-blue" id="mapSats">-- Sats</span>
+          <span class="pill-badge pill-amber" id="navStatusBadge">Nav: IDLE</span>
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 340px; gap: 20px; align-items: start;">
+        <!-- Left: Interactive GPS Map -->
+        <div style="display: flex; flex-direction: column; gap: 12px;">
+          <div id="roverMap" style="height: 380px; width: 100%; border-radius: var(--radius-md); overflow: hidden; border: 1px solid rgba(255,255,255,0.1); background: #020617; position: relative;"></div>
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; font-size: 12px; color: var(--text-muted); padding: 10px 14px; background: rgba(255,255,255,0.02); border-radius: var(--radius-sm); border: 1px solid rgba(255,255,255,0.06);">
+            <div>
+              <span>📍 GPS Position: </span>
+              <strong id="mapLatLon" style="color: #38bdf8; font-family: 'JetBrains Mono', monospace;">Searching satellites...</strong>
+            </div>
+            <div style="display: flex; gap: 8px;">
+              <button class="btn btn-outline" style="padding: 4px 10px; font-size: 11px;" onclick="centerMapOnRover()">🎯 Center Rover</button>
+              <button class="btn btn-outline" style="padding: 4px 10px; font-size: 11px;" onclick="openGoogleMaps()">🌐 Google Maps ↗</button>
+              <button class="btn btn-outline" style="padding: 4px 10px; font-size: 11px; color: #f43f5e;" onclick="clearTargetWaypoint()">✕ Clear Waypoint</button>
+            </div>
+          </div>
+          <p style="font-size: 11.5px; color: var(--text-sub); margin: 0;">
+            💡 <em>Click anywhere on the map to set a GPS destination waypoint for the rover to navigate towards autonomously using its compass.</em>
+          </p>
+        </div>
+
+        <!-- Right: Visual 360° Compass Rose & Directional Steering -->
+        <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: var(--radius-md); padding: 18px; display: flex; flex-direction: column; align-items: center;">
+          <h4 style="font-size: 14px; font-weight: 700; color: #f8fafc; margin-bottom: 6px; width: 100%; text-align: center;">
+            🧭 360° Compass &amp; Heading
+          </h4>
+
+          <!-- Compass Dial -->
+          <div class="compass-dial">
+            <div class="compass-marker marker-n">N<br><span style="font-size:8px;">0°</span></div>
+            <div class="compass-marker marker-e">E<br><span style="font-size:8px;">90°</span></div>
+            <div class="compass-marker marker-s">S<br><span style="font-size:8px;">180°</span></div>
+            <div class="compass-marker marker-w">W<br><span style="font-size:8px;">270°</span></div>
+            <div id="compassNeedle" class="compass-needle">
+              <div class="needle-north"></div>
+              <div class="needle-south"></div>
+              <div class="needle-center-dot"></div>
+            </div>
+          </div>
+
+          <!-- Digital Heading HUD -->
+          <div class="compass-hud-readout">
+            <div id="compassDegLarge" style="font-size: 26px; font-weight: 800; color: #38bdf8; letter-spacing: 1px;">0.0°</div>
+            <div id="compassCardinal" style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">NORTH BEARING</div>
+          </div>
+
+          <!-- Directional Steering Controls -->
+          <div style="width: 100%; margin-top: 10px; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 14px;">
+            <div style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-align: center; margin-bottom: 8px; text-transform: uppercase;">
+              Steer to Compass Direction
+            </div>
+
+            <!-- Direction Pad -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px;">
+              <button class="btn btn-outline" style="padding: 7px 4px; font-size: 11.5px; font-weight: 600;" onclick="steerCompass('nav_north')">
+                ⬆️ North (0°)
+              </button>
+              <button class="btn btn-outline" style="padding: 7px 4px; font-size: 11.5px; font-weight: 600;" onclick="steerCompass('nav_east')">
+                ➡️ East (90°)
+              </button>
+              <button class="btn btn-outline" style="padding: 7px 4px; font-size: 11.5px; font-weight: 600;" onclick="steerCompass('nav_south')">
+                ⬇️ South (180°)
+              </button>
+              <button class="btn btn-outline" style="padding: 7px 4px; font-size: 11.5px; font-weight: 600;" onclick="steerCompass('nav_west')">
+                ⬅️ West (270°)
+              </button>
+            </div>
+
+            <!-- Custom Angle Input -->
+            <div style="display: flex; gap: 6px; margin-bottom: 8px;">
+              <input type="number" id="customHeadingInput" min="0" max="360" placeholder="Custom deg (0-360)" style="flex: 1; padding: 7px 10px; font-size: 12px; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.15); border-radius: var(--radius-sm); color: #fff;">
+              <button class="btn btn-cyan" style="padding: 7px 12px; font-size: 12px;" onclick="steerCustomHeading()">Turn</button>
+            </div>
+
+            <button class="btn btn-rose" style="width: 100%; padding: 7px 0; font-size: 11px; font-weight: 700;" onclick="sendCommand('nav_stop')">
+              🛑 Halt Steering / Motion
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Dual Split: Controls & Disease Gallery -->
+    <div class="split-section">
+
+      <!-- Left: Remote Actuation Controls -->
+      <div class="glass-card">
+        <h3 class="panel-title">
+          <span>🎮</span> Remote Actuation
+        </h3>
+        <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 20px;">
+          Commands sent from this cloud interface are delivered to the robot via AWS API Gateway and executed safely.
+        </p>
+
+        <!-- Pump Control -->
+        <div class="ctrl-item">
+          <div class="ctrl-meta">
+            <h4>Drip Irrigation Pump</h4>
+            <p>12V High-Pressure Submersible Pump</p>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn btn-emerald" style="padding: 6px 12px; font-size: 12px;"
+              onclick="sendCommand('pump_on')">Start</button>
+            <button class="btn btn-outline" style="padding: 6px 12px; font-size: 12px;"
+              onclick="sendCommand('pump_off')">Stop</button>
+          </div>
+        </div>
+
+        <!-- Cutter Control -->
+        <div class="ctrl-item">
+          <div class="ctrl-meta">
+            <h4>Grass Trimmer</h4>
+            <p>High-Torque Rotary Mower Unit</p>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn btn-emerald" style="padding: 6px 12px; font-size: 12px;"
+              onclick="sendCommand('cutter_on')">Start</button>
+            <button class="btn btn-outline" style="padding: 6px 12px; font-size: 12px;"
+              onclick="sendCommand('cutter_off')">Stop</button>
+          </div>
+        </div>
+
+        <!-- Auto-Detection Info Box -->
+        <div
+          style="background: rgba(16, 185, 129, 0.06); border: 1px dashed rgba(16, 185, 129, 0.25); border-radius: var(--radius-md); padding: 14px; margin-top: 20px;">
+          <h5 style="color: #34d399; font-size: 13px; font-weight: 600; margin-bottom: 4px;">🌱 Auto Plant Scanning
+            Active</h5>
+          <p style="font-size: 12px; color: var(--text-muted); line-height: 1.4;">
+            The robot's CSI camera continuously analyzes incoming video. When green leaf foliage enters the field of
+            view, the chassis stops, segments individual leaves, averages the neural network diagnosis, and uploads the
+            results below. Manual photo upload is disabled to ensure 100% autonomous operation.
+          </p>
+        </div>
+      </div>
+
+      <!-- Right: Disease Scans Stream -->
+      <div class="glass-card">
+        <div
+          style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; flex-wrap: wrap; gap: 10px;">
+          <h3 class="panel-title" style="margin-bottom: 0;">
+            <span>🔬</span> Autonomous Plant Health Scans
+          </h3>
+          <span style="font-size: 12px; color: var(--text-muted);" id="scanCountText">0 scans recorded</span>
+        </div>
+
+        <div class="scan-gallery" id="scanGallery">
+          <!-- Dynamic Scan Cards Injected Here -->
+          <div
+            style="grid-column: 1 / -1; text-align: center; padding: 40px; color: var(--text-muted); font-size: 14px;">
+            Waiting for auto-scans from Raspberry Pi...
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    </div><!-- /panel-dashboard -->
+
+    <!-- ====== TAB: FARMER BLOGS ====== -->
+    <div class="tab-panel" id="panel-blogs">
+      <div style="display:flex; justify-content:space-between; align-items:baseline; flex-wrap:wrap; gap:12px; margin-bottom:20px;">
+        <div>
+          <h2 style="font-size:22px; font-weight:700; color:#f8fafc; margin:0;">📰 Farmer Blogs, Government Schemes &amp; Agronomy News</h2>
+          <p style="font-size:13px; color:var(--text-muted); margin:4px 0 0 0;">Central &amp; state government initiatives, expert agronomy articles, and farmer advisories</p>
+        </div>
+        <button class="btn btn-outline" id="refreshBlogsBtn">↻ Refresh</button>
+      </div>
+      <div class="blog-grid" id="blogGrid">
+        <div class="glass-card blog-card"><span class="blog-src">Loading</span><div class="blog-title">Fetching latest farming articles &amp; government schemes…</div></div>
+      </div>
+    </div>
+
+    <!-- ====== TAB: DISEASE LIBRARY ====== -->
+    <div class="tab-panel" id="panel-library">
+      <div style="margin-bottom:20px;">
+        <h2 style="font-size:22px; font-weight:700; color:#f8fafc; margin:0 0 4px 0;">🌿 Plant Disease Library</h2>
+        <p style="font-size:13px; color:var(--text-muted); margin:0;">Cause, symptoms &amp; treatment reference by crop type — from your Lambda /diseases endpoint</p>
+      </div>
+      <div class="plant-chips" id="plantChips"></div>
+      <div class="disease-grid" id="diseaseGrid"></div>
+    </div>
+
+    <!-- ====== TAB: DISEASE DETECTION ====== -->
+    <div class="tab-panel" id="panel-detect">
+      <div style="margin-bottom:20px;">
+        <h2 style="font-size:22px; font-weight:700; color:#f8fafc; margin:0 0 4px 0;">📷 Disease Detection</h2>
+        <p style="font-size:13px; color:var(--text-muted); margin:0;">Upload a leaf photo → it's queued to the rover via AWS → the rover analyzes it on-device → result logged to S3</p>
+      </div>
+      <div class="detect-wrap">
+        <div class="glass-card">
+          <div class="detect-preview" id="detectPreview"><span>No photo selected</span></div>
+          <input type="file" id="leafFile" accept="image/*" capture="environment" hidden>
+          <button class="btn btn-emerald btn-full" id="pickPhotoBtn">📷 Take / Upload Leaf Photo</button>
+          <button class="btn btn-outline btn-full" id="sendToRoverBtn" disabled>☁ Send to Rover for Analysis</button>
+        </div>
+        <div class="glass-card result-card" id="detectResult">
+          <div class="result-empty">Results will appear here once the rover finishes analyzing your photo.<br><br>This can take a few seconds — the rover polls the cloud queue on its relay interval.</div>
+        </div>
+      </div>
+      <h3 style="font-size:16px; font-weight:700; color:#f8fafc; margin:24px 0 12px 0;">Recent Scans from Rover</h3>
+      <div class="mini-scans" id="miniScans"></div>
+    </div>
+
+  </div>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="toast">
+    <span id="toastIcon">✨</span>
+    <span id="toastMsg">Command dispatched successfully</span>
+  </div>
+
+  <!-- Settings Modal -->
+  <div class="modal-overlay" id="settingsModal">
+    <div class="modal-content">
+      <h3 class="modal-title">AgroNex-Pi Endpoint Settings</h3>
+      <p class="modal-sub">
+        Choose whether this dashboard connects directly to your local Raspberry Pi or via AWS API Gateway Cloud.
+      </p>
+
+      <div style="margin: 12px 0; display: flex; gap: 8px;">
+        <button type="button" class="btn btn-outline" style="font-size: 12px; padding: 6px 12px;" onclick="usePreset('aws')">☁️ AWS Cloud API</button>
+        <button type="button" class="btn btn-outline" style="font-size: 12px; padding: 6px 12px;" onclick="usePreset('local')">🤖 Local Pi (Direct)</button>
+      </div>
+
+      <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 6px;">Target API Base URL:</label>
+      <input type="text" id="apiUrlInput" class="input-field"
+        placeholder="https://xxxxxx.execute-api.ap-south-1.amazonaws.com or http://localhost:5000">
+
+      <div style="display: flex; justify-content: flex-end; gap: 10px;">
+        <button class="btn btn-outline" onclick="closeSettings()">Cancel</button>
+        <button class="btn btn-emerald" onclick="saveSettings()">Save & Connect</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Configuration
+    const DEFAULT_API_URL = "https://fyxosg11ad.execute-api.ap-south-1.amazonaws.com";
+    let savedUrl = localStorage.getItem("agronex_api_url");
+    if (!savedUrl || savedUrl.includes("REPLACE_ME") || savedUrl.endsWith("/prod") || savedUrl.endsWith("/prod/")) {
+      savedUrl = DEFAULT_API_URL;
+      localStorage.setItem("agronex_api_url", savedUrl);
+    }
+    let API_URL = savedUrl.replace(/\/$/, "");
+
+    // Check if opened via local file protocol (CORS limitation with Origin: null)
+    const isFileProtocol = window.location.protocol === "file:";
+
+    // UI Elements
+    const dot = document.getElementById("connectionDot");
+    const statusText = document.getElementById("connectionText");
+    const lastSyncTime = document.getElementById("lastSyncTime");
+    const endpointBadge = document.getElementById("endpointBadge");
+    const fsmBadge = document.getElementById("fsmBadge");
+    const soilVal = document.getElementById("soilVal");
+    const soilStatus = document.getElementById("soilStatus");
+    const soilBar = document.getElementById("soilBar");
+    const waterVal = document.getElementById("waterVal");
+    const waterStatus = document.getElementById("waterStatus");
+    const waterBar = document.getElementById("waterBar");
+    const tempVal = document.getElementById("tempVal");
+    const humVal = document.getElementById("humVal");
+    const humBar = document.getElementById("humBar");
+    const headingVal = document.getElementById("headingVal");
+    const gpsStatus = document.getElementById("gpsStatus");
+    const mapsLink = document.getElementById("mapsLink");
+    const actuatorSummary = document.getElementById("actuatorSummary");
+    const pumpPill = document.getElementById("pumpPill");
+    const cutterPill = document.getElementById("cutterPill");
+    const scanGallery = document.getElementById("scanGallery");
+    const scanCountText = document.getElementById("scanCountText");
+    const liveFeedImg = document.getElementById("liveFeedImg");
+    const streamStatusBadge = document.getElementById("streamStatusBadge");
+    const toggleStreamBtn = document.getElementById("toggleStreamBtn");
+    const streamFallbackNotice = document.getElementById("streamFallbackNotice");
+
+    function getLocalOrigin() {
+      if (window.location.origin && window.location.origin !== "null" && !window.location.origin.startsWith("file")) {
+        return window.location.origin;
+      }
+      return "http://localhost:5000";
+    }
+
+    function usePreset(mode) {
+      if (mode === 'aws') {
+        document.getElementById('apiUrlInput').value = DEFAULT_API_URL;
+      } else {
+        document.getElementById('apiUrlInput').value = getLocalOrigin();
+      }
+    }
+
+    function toggleMode() {
+      const localOrigin = getLocalOrigin();
+      if (API_URL === DEFAULT_API_URL) {
+        API_URL = localOrigin;
+        localStorage.setItem("agronex_api_url", localOrigin);
+        showToast("Switched to Local Mode (Pi / Direct)", "🤖");
+      } else {
+        API_URL = DEFAULT_API_URL;
+        localStorage.setItem("agronex_api_url", DEFAULT_API_URL);
+        showToast("Switched to Cloud Mode (AWS)", "☁️");
+      }
+      updateBadge();
+      fetchState();
+      fetchScans();
+    }
+
+    function updateBadge() {
+      endpointBadge.textContent = API_URL;
+      document.getElementById("apiUrlInput").value = API_URL;
+      const isCloud = API_URL === DEFAULT_API_URL;
+      const modePill = document.getElementById("modePill");
+      if (modePill) {
+        modePill.textContent = isCloud ? "☁️ Cloud (AWS)" : "🤖 Local (Direct)";
+        modePill.className = isCloud ? "pill-badge pill-green" : "pill-badge pill-blue";
+      }
+    }
+    updateBadge();
+
+    // Settings Modal
+    function openSettings() {
+      document.getElementById("settingsModal").classList.add("active");
+    }
+    function closeSettings() {
+      document.getElementById("settingsModal").classList.remove("active");
+    }
+    function saveSettings() {
+      let val = document.getElementById("apiUrlInput").value.trim().replace(/\/$/, "");
+      if (val.endsWith("/prod")) val = val.slice(0, -5);
+      if (val) {
+        API_URL = val;
+        localStorage.setItem("agronex_api_url", val);
+        updateBadge();
+        showToast("✅ API Gateway URL updated!", "✨");
+        closeSettings();
+        fetchState();
+        fetchScans();
+      }
+    }
+
+    // Toast Notification
+    function showToast(msg, icon = "✨") {
+      const toast = document.getElementById("toast");
+      document.getElementById("toastMsg").textContent = msg;
+      document.getElementById("toastIcon").textContent = icon;
+      toast.classList.add("show");
+      setTimeout(() => toast.classList.remove("show"), 3200);
+    }
+
+    // Command Dispatch
+    async function sendCommand(cmd) {
+      if (API_URL.includes("REPLACE_ME")) {
+        openSettings();
+        showToast("⚠️ Please configure your AWS API URL first", "⚠️");
+        return;
+      }
+      try {
+        showToast(`Sending '${cmd}' command...`, "🚀");
+        const res = await fetch(`${API_URL}/command`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ command: cmd })
+        });
+        const data = await res.json();
+        if (data.ok) {
+          showToast(`Command '${cmd}' queued to cloud!`, "✅");
+        } else {
+          showToast(`Error: ${data.error || 'Failed'}`, "❌");
+        }
+      } catch (err) {
+        showToast(`Failed to dispatch command: ${err.message}`, "❌");
+      }
+    }
+
+    // Fetch Telemetry State
+    async function fetchState() {
+      if (API_URL.includes("REPLACE_ME")) {
+        dot.className = "pulse-dot offline";
+        statusText.textContent = "API URL Not Configured";
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API_URL}/state`);
+        const json = await res.json();
+
+        if (json.ok && json.data && Object.keys(json.data).length > 0) {
+          const d = json.data;
+          dot.className = "pulse-dot online";
+          statusText.textContent = "Online • Cloud Sync Active";
+
+          if (d._received_at) {
+            const date = new Date(d._received_at);
+            lastSyncTime.textContent = `(last seen: ${date.toLocaleTimeString()})`;
+          }
+
+          // FSM
+          const fsm = (d.current_state || "UNKNOWN").toUpperCase();
+          fsmBadge.textContent = `FSM: ${fsm}`;
+          if (fsm === "IRRIGATING") fsmBadge.className = "pill-badge pill-blue";
+          else if (fsm === "CUTTING") fsmBadge.className = "pill-badge pill-amber";
+          else if (fsm === "SCANNING") fsmBadge.className = "pill-badge pill-green";
+          else if (fsm === "SAFE_STATE") fsmBadge.className = "pill-badge pill-red";
+          else fsmBadge.className = "pill-badge pill-green";
+
+          // Soil Moisture
+          const soil = d.soil_moisture !== undefined && d.soil_moisture !== null ? Number(d.soil_moisture).toFixed(1) : "--";
+          soilVal.textContent = `${soil}%`;
+          if (soil !== "--") {
+            soilBar.style.width = `${Math.min(100, Math.max(0, soil))}%`;
+            soilStatus.textContent = Number(soil) < 30 ? "⚠️ Low Moisture — Irrigation Needed" : (Number(soil) > 75 ? "Adequate (Moist)" : "Optimal Range");
+          }
+
+          // Water Reservoir (HW-038)
+          const water = d.water_level !== undefined && d.water_level !== null ? Number(d.water_level).toFixed(1) : "--";
+          if (waterVal) waterVal.textContent = `${water}%`;
+          if (water !== "--") {
+            if (waterBar) waterBar.style.width = `${Math.min(100, Math.max(0, water))}%`;
+            if (waterStatus) {
+              const wn = Number(water);
+              if (wn < 15) { waterStatus.textContent = "🔴 CRITICAL LOW — Refill Immediately"; waterBar && (waterBar.style.background = "linear-gradient(90deg,#ef4444,#dc2626)"); }
+              else if (wn < 30) { waterStatus.textContent = "⚠️ Low — Refill Soon"; waterBar && (waterBar.style.background = "linear-gradient(90deg,#f59e0b,#d97706)"); }
+              else if (wn > 80) { waterStatus.textContent = "✅ Full — Reservoir OK"; waterBar && (waterBar.style.background = "linear-gradient(90deg,#10b981,#06b6d4)"); }
+              else { waterStatus.textContent = d.water_status || "Normal Level"; waterBar && (waterBar.style.background = "linear-gradient(90deg,#06b6d4,#3b82f6)"); }
+            }
+          } else if (d.water_status && waterStatus) {
+            waterStatus.textContent = d.water_status;
+          }
+
+          // Atmosphere
+          const temp = d.temperature !== undefined && d.temperature !== null ? Number(d.temperature).toFixed(1) : "--";
+          const hum = d.humidity !== undefined && d.humidity !== null ? Number(d.humidity).toFixed(1) : "--";
+          tempVal.textContent = `${temp}°C`;
+          humVal.textContent = `${hum}%`;
+          if (hum !== "--") humBar.style.width = `${Math.min(100, Math.max(0, hum))}%`;
+
+          // Compass & GPS Telemetry Update
+          const headingRaw = d.heading_deg !== undefined && d.heading_deg !== null ? Number(d.heading_deg) : null;
+          const headingStr = headingRaw !== null && !isNaN(headingRaw) ? headingRaw.toFixed(1) : "--";
+          headingVal.textContent = `${headingStr}°`;
+
+          if (headingRaw !== null && !isNaN(headingRaw)) {
+            // Smoothly rotate visual compass needle
+            const needle = document.getElementById("compassNeedle");
+            if (needle) needle.style.transform = `rotate(${headingRaw}deg)`;
+
+            // Compute cardinal direction
+            const cardinalDirections = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"];
+            const cardIdx = Math.round((headingRaw % 360) / 22.5) % 16;
+            const cardinal = cardinalDirections[cardIdx];
+
+            const hudDeg = document.getElementById("compassDegLarge");
+            const hudCard = document.getElementById("compassCardinal");
+            if (hudDeg) hudDeg.textContent = `${headingRaw.toFixed(1)}°`;
+            if (hudCard) hudCard.textContent = `${cardinal} BEARING`;
+
+            // Rotate rover icon on map
+            const mapPin = document.getElementById("mapRoverPin");
+            if (mapPin) mapPin.style.transform = `rotate(${headingRaw}deg)`;
+          }
+
+          // Parse GPS Coordinates
+          let lat = null, lon = null;
+          if (d.gps && typeof d.gps === "object") {
+            if (d.gps.lat !== undefined && d.gps.lat !== null) lat = Number(d.gps.lat);
+            else if (d.gps.latitude !== undefined && d.gps.latitude !== null) lat = Number(d.gps.latitude);
+
+            if (d.gps.lon !== undefined && d.gps.lon !== null) lon = Number(d.gps.lon);
+            else if (d.gps.longitude !== undefined && d.gps.longitude !== null) lon = Number(d.gps.longitude);
+          }
+
+          const mapLatLon = document.getElementById("mapLatLon");
+          const mapSats = document.getElementById("mapSats");
+          const gpsFixBadge = document.getElementById("gpsFixBadge");
+          const navStatusBadge = document.getElementById("navStatusBadge");
+
+          if (navStatusBadge) {
+            const navState = (d.navigation_status || d.current_state || "IDLE").toUpperCase();
+            navStatusBadge.textContent = `Nav: ${navState}`;
+            navStatusBadge.className = navState === "NAVIGATING" ? "pill-badge pill-blue" : "pill-badge pill-amber";
+          }
+
+          const gpsHasValidFix = d.gps && d.gps.valid !== false &&
+            Number.isFinite(lat) && Number.isFinite(lon) &&
+            lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180;
+
+          if (gpsHasValidFix) {
+            const firstGpsFix = !hasGpsFix;
+            currentLat = lat;
+            currentLon = lon;
+            hasGpsFix = true;
+            const latStr = lat.toFixed(6);
+            const lonStr = lon.toFixed(6);
+            gpsStatus.textContent = `Fix: ${latStr}, ${lonStr}`;
+            mapsLink.href = `https://www.google.com/maps?q=${latStr},${lonStr}`;
+            mapsLink.style.display = "inline-block";
+
+            if (mapLatLon) mapLatLon.textContent = `${Math.abs(lat).toFixed(6)}° ${lat < 0 ? "S" : "N"}, ${Math.abs(lon).toFixed(6)}° ${lon < 0 ? "W" : "E"}`;
+            const sats = d.gps.satellites ?? "--";
+            if (mapSats) mapSats.textContent = `${sats} Satellites`;
+            if (gpsFixBadge) {
+              gpsFixBadge.textContent = "● GPS FIX";
+              gpsFixBadge.className = "pill-badge pill-green";
+            }
+
+            if (roverMap && roverIcon) {
+              if (!roverMarker) {
+                roverMarker = L.marker([lat, lon], { icon: roverIcon }).addTo(roverMap);
+                roverMarker.bindPopup("<b>AgroNex-Pi Rover</b><br>Live NEO-7M GPS fix");
+              } else {
+                roverMarker.setLatLng([lat, lon]);
+              }
+              if (firstGpsFix) {
+                roverMap.setView([lat, lon], 16);
+              } else {
+                roverMap.panTo([lat, lon], { animate: true, duration: 0.5 });
+              }
+            } else if (roverMarker) {
+              roverMarker.setLatLng([lat, lon]);
+            }
+          } else {
+            gpsStatus.textContent = hasGpsFix ? "GPS signal lost; showing last known fix" : "Waiting for a valid NEO-7M fix...";
+            mapsLink.style.display = hasGpsFix ? "inline-block" : "none";
+            if (mapLatLon && !hasGpsFix) mapLatLon.textContent = "Waiting for GPS fix...";
+            if (gpsFixBadge) {
+              gpsFixBadge.textContent = hasGpsFix ? "● GPS FIX LOST" : "● GPS SEARCHING";
+              gpsFixBadge.className = "pill-badge pill-amber";
+            }
+          }
+
+          // Actuators
+          const pumpOn = Boolean(d.pump_state);
+          const cutterOn = Boolean(d.cutter_state);
+
+          pumpPill.textContent = pumpOn ? "Pump ACTIVE" : "Pump OFF";
+          pumpPill.className = pumpOn ? "pill-badge pill-green" : "pill-badge pill-red";
+
+          cutterPill.textContent = cutterOn ? "Cutter ACTIVE" : "Cutter OFF";
+          cutterPill.className = cutterOn ? "pill-badge pill-green" : "pill-badge pill-red";
+
+          if (pumpOn && cutterOn) actuatorSummary.textContent = "Pump & Trimmer Running";
+          else if (pumpOn) actuatorSummary.textContent = "Watering Active";
+          else if (cutterOn) actuatorSummary.textContent = "Grass Trimming Active";
+          else actuatorSummary.textContent = "Actuators Idle (Autonomous)";
+
+          // Camera Live Snapshot in Cloud Mode (1-min persistent snapshot)
+          const isLocalPi = API_URL.includes("localhost") || API_URL.includes(":5000");
+          if (!isLocalPi && d.camera_snapshot_url && streamActive) {
+            const feedImg = document.getElementById("liveFeedImg");
+            const fallback = document.getElementById("streamFallbackNotice");
+            const badge = document.getElementById("streamStatusBadge");
+            const ageBadge = document.getElementById("snapshotAge");
+            const modeBadge = document.getElementById("camModeBadge");
+            const fpsBadge = document.getElementById("streamFpsBadge");
+
+            if (modeBadge) modeBadge.textContent = "☁️ AWS Cloud (1m Interval)";
+            if (fpsBadge) fpsBadge.textContent = "1-Min Refresh";
+
+            const incomingUrl = d.camera_snapshot_url;
+            const incomingTime = d.camera_snapshot_time || '';
+
+            // Update age text continuously without disturbing the image
+            if (ageBadge && incomingTime) {
+              const diffSec = Math.round((Date.now() - new Date(incomingTime).getTime()) / 1000);
+              if (diffSec < 60) {
+                ageBadge.textContent = `Captured just now (Next in ~1m)`;
+              } else {
+                const mins = Math.floor(diffSec / 60);
+                ageBadge.textContent = `Captured ${mins}m ago`;
+              }
+            }
+
+            // Only preload & update when a NEW snapshot has arrived
+            if (incomingUrl !== currentSnapshotUrl || incomingTime !== currentSnapshotTime) {
+              const preload = new Image();
+              preload.onload = () => {
+                currentSnapshotUrl = incomingUrl;
+                currentSnapshotTime = incomingTime;
+                if (feedImg) {
+                  feedImg.src = incomingUrl;
+                  feedImg.style.display = "block";
+                }
+                if (fallback) fallback.style.display = "none";
+                if (badge) {
+                  badge.textContent = "● CLOUD SNAPSHOT (SAVED)";
+                  badge.className = "pill-badge pill-green";
+                }
+              };
+              preload.onerror = () => {
+                console.warn("Could not load camera snapshot from S3 URL:", incomingUrl);
+                // Keep the current picture visible if we already had one!
+                if (!currentSnapshotUrl && fallback) {
+                  fallback.style.display = "block";
+                  if (badge) {
+                    badge.textContent = "● S3 PENDING";
+                    badge.className = "pill-badge pill-amber";
+                  }
+                }
+              };
+              preload.src = incomingUrl;
+            } else if (currentSnapshotUrl && feedImg) {
+              // Ensure existing image remains displayed and healthy
+              feedImg.style.display = "block";
+              if (fallback) fallback.style.display = "none";
+              if (badge) {
+                badge.textContent = "● CLOUD SNAPSHOT (SAVED)";
+                badge.className = "pill-badge pill-green";
+              }
+            }
+          }
+
+        } else {
+          dot.className = "pulse-dot";
+          statusText.textContent = "Waiting for robot telemetry...";
+        }
+      } catch (err) {
+        dot.className = "pulse-dot offline";
+        if (isFileProtocol) {
+          statusText.textContent = "CORS Blocked (Local file:// origin). Open via http://localhost:5000/cloud or local web server.";
+        } else {
+          statusText.textContent = "Sync Paused (Check network / AWS API)";
+        }
+        console.warn("fetchState error:", err);
+      }
+    }
+
+    // Fetch Disease Scans
+    async function fetchScans() {
+      if (API_URL.includes("REPLACE_ME")) return;
+
+      try {
+        const res = await fetch(`${API_URL}/scans`);
+        const json = await res.json();
+
+        if (json.ok && json.scans && json.scans.length > 0) {
+          scanCountText.textContent = `${json.scans.length} scans recorded`;
+          renderScans(json.scans);
+        }
+      } catch (err) {
+        console.error("Scan fetch error:", err);
+      }
+    }
+
+    function renderScans(scans) {
+      scanGallery.innerHTML = scans.map(s => {
+        const isQualityRejected = Boolean(s.quality_flag && s.quality_flag !== "QUALITY_OK" && s.quality_flag !== "OK") || (s.common_name && s.common_name.includes("Quality Rejected")) || (s.common_name && s.common_name.includes("Blurry"));
+        const isBackground = s.label === "background_not_a_leaf" || Boolean(s.is_background);
+        const isHealthy = Boolean(s.is_healthy) && !isQualityRejected && !isBackground;
+
+        let statusBadge;
+        if (isQualityRejected) {
+          statusBadge = `<span class="pill-badge pill-amber">BLURRY / RETAKE</span>`;
+        } else if (isBackground) {
+          statusBadge = `<span class="pill-badge pill-blue">BACKGROUND</span>`;
+        } else if (isHealthy) {
+          statusBadge = `<span class="pill-badge pill-green">HEALTHY VIGOR</span>`;
+        } else {
+          statusBadge = `<span class="pill-badge pill-red">DISEASE DETECTED</span>`;
+        }
+
+        const confVal = (s.confidence !== undefined && s.confidence !== null) ? Number(s.confidence) : 0;
+        const confText = (confVal > 0) ? `${(confVal * 100).toFixed(1)}%` : "--";
+        const leafInfo = s.leaf_count
+          ? `${s.leaf_count} leaves segmented (${s.healthy_leaf_count || 0} healthy, ${s.diseased_leaf_count || 0} affected)`
+          : "Full frame analysis";
+
+        const treatment = s.treatment || "Maintain balanced nutrition and regular inspection.";
+        const dateStr = s.timestamp ? new Date(s.timestamp).toLocaleString() : "Recent Scan";
+        const imgUrl = s.image_url || "https://images.unsplash.com/photo-1592417817098-8f3d6910985b?w=500&auto=format&fit=crop&q=60";
+
+        return `
+          <div class="scan-card">
+            <div class="scan-img-box">
+              <img src="${imgUrl}" alt="${s.common_name || 'Leaf scan'}" onerror="this.src='https://images.unsplash.com/photo-1592417817098-8f3d6910985b?w=500&auto=format&fit=crop&q=60'">
+            </div>
+            <div class="scan-card-body">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                <span class="scan-time">${dateStr}</span>
+                ${statusBadge}
+              </div>
+              <div class="scan-title">${s.common_name || s.label || 'Leaf Analysis'}</div>
+              <div class="scan-detail">
+                <div>Confidence: <strong>${confText}</strong></div>
+                <div style="font-size: 11px; color: var(--text-sub); margin-top: 2px;">${leafInfo}</div>
+              </div>
+              <div class="cure-box">
+                <strong>Agronomic Cure / Action:</strong>
+                ${treatment}
+              </div>
+            </div>
+          </div>
+        `;
+
+      }).join("");
+    }
+
+    // ── Live Camera Stream Controls ──────────────────────────────────────────
+    let streamActive = true;
+    let currentSnapshotUrl = '';
+    let currentSnapshotTime = '';
+    function handleStreamError(img) {
+      if (!currentSnapshotUrl) {
+        img.style.display = 'none';
+        if (streamFallbackNotice) streamFallbackNotice.style.display = 'block';
+        if (streamStatusBadge) { streamStatusBadge.textContent = '● STREAM OFFLINE'; streamStatusBadge.className = 'pill-badge pill-red'; }
+      }
+    }
+    function retryStream() {
+      if (!liveFeedImg) return;
+      liveFeedImg.style.display = 'block';
+      if (streamFallbackNotice) streamFallbackNotice.style.display = 'none';
+      liveFeedImg.src = (API_URL.startsWith('http://localhost') || API_URL.startsWith('http://192.168')
+        ? API_URL : 'http://localhost:5000') + '/video_feed?' + Date.now();
+      if (streamStatusBadge) { streamStatusBadge.textContent = '● LIVE STREAM ACTIVE'; streamStatusBadge.className = 'pill-badge pill-green'; }
+    }
+    function toggleLiveFeed() {
+      streamActive = !streamActive;
+      if (!liveFeedImg) return;
+      if (!streamActive) {
+        liveFeedImg.dataset.src = liveFeedImg.src;
+        liveFeedImg.src = '';
+        if (toggleStreamBtn) toggleStreamBtn.textContent = '▶ Resume Stream';
+        if (streamStatusBadge) { streamStatusBadge.textContent = '⏸ PAUSED'; streamStatusBadge.className = 'pill-badge pill-amber'; }
+      } else {
+        liveFeedImg.src = liveFeedImg.dataset.src || '/video_feed?' + Date.now();
+        if (toggleStreamBtn) toggleStreamBtn.textContent = '⏸ Pause Stream';
+        if (streamStatusBadge) { streamStatusBadge.textContent = '● LIVE STREAM ACTIVE'; streamStatusBadge.className = 'pill-badge pill-green'; }
+      }
+    }
+    function captureSnapshot() {
+      if (!liveFeedImg || !liveFeedImg.src) return showToast('Stream not active', '⚠️');
+      try {
+        const c = document.createElement('canvas');
+        c.width = liveFeedImg.naturalWidth || 640; c.height = liveFeedImg.naturalHeight || 480;
+        c.getContext('2d').drawImage(liveFeedImg, 0, 0);
+        const a = document.createElement('a'); a.href = c.toDataURL('image/jpeg', 0.9);
+        a.download = 'agronex_snapshot_' + Date.now() + '.jpg'; a.click();
+        showToast('Snapshot saved!', '📸');
+      } catch(e) { showToast('Cannot snapshot cross-origin stream', '⚠️'); }
+    }
+    // Auto-set stream source to Pi local URL when in local mode
+    function updateStreamSource() {
+      if (!liveFeedImg || !streamActive) return;
+      const isLocal = API_URL.includes('localhost') || API_URL.includes('192.168') || API_URL.includes(':5000');
+      if (isLocal) {
+        const base = (API_URL.startsWith('http') ? API_URL : 'http://localhost:5000');
+        const newSrc = base.replace(/\/$/, '') + '/video_feed';
+        if (liveFeedImg.src !== newSrc) liveFeedImg.src = newSrc;
+        liveFeedImg.style.display = 'block';
+        if (streamFallbackNotice) streamFallbackNotice.style.display = 'none';
+        if (streamStatusBadge) { streamStatusBadge.textContent = '● LOCAL MJPEG ACTIVE'; streamStatusBadge.className = 'pill-badge pill-green'; }
+      }
+    }
+    updateStreamSource();
+
+    // ── Live Rover GPS Map & Compass Direction Controls ──────────────────────
+    let roverMap = null;
+    let roverMarker = null;
+    let targetMarker = null;
+    let currentLat = null;
+    let currentLon = null;
+    let hasGpsFix = false;
+    let roverIcon = null;
+
+    function initRoverMap() {
+      if (roverMap || typeof L === 'undefined') return;
+      const mapEl = document.getElementById('roverMap');
+      if (!mapEl) return;
+
+      try {
+        roverMap = L.map('roverMap', { zoomControl: true }).setView([0, 0], 2);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom: 19,
+          attribution: '© OpenStreetMap contributors'
+        }).addTo(roverMap);
+
+        // Rover directional icon with dynamic rotation
+        const roverHtml = `
+          <div id="mapRoverPin" style="width:38px;height:38px;display:flex;align-items:center;justify-content:center;transition:transform 0.5s ease;transform:rotate(0deg);">
+            <div style="background:#10b981;border:3px solid #ffffff;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;box-shadow:0 0 14px rgba(16,185,129,0.9);">
+              <div style="width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:10px solid #ffffff;transform:translateY(-1px);"></div>
+            </div>
+          </div>`;
+
+        roverIcon = L.divIcon({
+          className: 'rover-div-icon',
+          html: roverHtml,
+          iconSize: [38, 38],
+          iconAnchor: [19, 19]
+        });
+
+        // Click to drop destination waypoint
+        roverMap.on('click', function(e) {
+          const lat = e.latlng.lat.toFixed(6);
+          const lon = e.latlng.lng.toFixed(6);
+          if (targetMarker) {
+            targetMarker.setLatLng(e.latlng);
+          } else {
+            targetMarker = L.marker(e.latlng).addTo(roverMap);
+          }
+          targetMarker.bindPopup(`
+            <div style="font-family:sans-serif;font-size:12px;">
+              <strong>🎯 Destination Waypoint</strong><br>
+              Lat: ${lat}<br>Lon: ${lon}<br>
+              <button class="btn btn-emerald" style="padding:4px 8px;font-size:11px;margin-top:6px;width:100%;" onclick="sendTargetWaypoint(${lat}, ${lon})">
+                🚀 Navigate Here
+              </button>
+            </div>
+          `).openPopup();
+          showToast(`Waypoint dropped: ${lat}, ${lon}`, "📍");
+        });
+      } catch(err) {
+        console.warn("Leaflet Map init error:", err);
+      }
+    }
+
+    function centerMapOnRover() {
+      if (!roverMap || !roverMarker || !hasGpsFix) {
+        showToast("Waiting for a valid NEO-7M GPS fix", "📡");
+        return;
+      }
+      roverMap.setView([currentLat, currentLon], 17);
+      showToast("Centered on Rover", "🎯");
+    }
+
+    function openGoogleMaps() {
+      if (!hasGpsFix || currentLat === null || currentLon === null) {
+        showToast("Waiting for a valid NEO-7M GPS fix", "📡");
+        return;
+      }
+      const url = `https://www.google.com/maps?q=${currentLat},${currentLon}`;
+      window.open(url, '_blank');
+    }
+
+    function clearTargetWaypoint() {
+      if (targetMarker && roverMap) {
+        roverMap.removeLayer(targetMarker);
+        targetMarker = null;
+      }
+      sendCommand('nav_stop');
+      showToast("Waypoint cleared & navigation halted", "✕");
+    }
+
+    function sendTargetWaypoint(lat, lon) {
+      sendCommand(`set_waypoint:${lat},${lon}`);
+      showToast(`Heading to: ${lat}, ${lon}`, "🚀");
+    }
+
+    function steerCompass(directionCmd) {
+      sendCommand(directionCmd);
+      const labels = {
+        'nav_north': 'North (0°)',
+        'nav_east': 'East (90°)',
+        'nav_south': 'South (180°)',
+        'nav_west': 'West (270°)'
+      };
+      showToast(`Steering to ${labels[directionCmd] || directionCmd}`, "🧭");
+    }
+
+    function steerCustomHeading() {
+      const input = document.getElementById('customHeadingInput');
+      if (!input || !input.value) return showToast("Enter heading degrees (0-360)", "⚠️");
+      const deg = parseFloat(input.value);
+      if (isNaN(deg) || deg < 0 || deg > 360) return showToast("Heading must be 0° to 360°", "⚠️");
+      sendCommand(`steer_heading:${deg}`);
+      showToast(`Steering to ${deg}°`, "🧭");
+    }
+
+    // Initialize Map and Telemetry Polling Intervals
+    initRoverMap();
+    fetchState();
+    fetchScans();
+    setInterval(fetchState, 3000);   // poll telemetry every 3s
+    setInterval(fetchScans, 6000);   // poll scans every 6s
+
+    // ── Tab Navigation ──────────────────────────────────────────────────────
+    function switchTab(tabName) {
+      const tabs = document.querySelectorAll('.tab-btn');
+      tabs.forEach(b => {
+        if (b.dataset.tab === tabName) {
+          b.classList.add('active');
+        } else {
+          b.classList.remove('active');
+        }
+      });
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+      const targetPanel = document.getElementById('panel-' + tabName);
+      if (targetPanel) {
+        targetPanel.classList.add('active');
+      }
+      if (tabName === 'blogs') loadBlogs();
+      if (tabName === 'library') loadDiseaseLibrary();
+      if (tabName === 'detect') loadMiniScans();
+    }
+    window.switchTab = switchTab;
+
+    (function() {
+      const tabs = document.querySelectorAll('.tab-btn');
+      tabs.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.preventDefault();
+          switchTab(btn.dataset.tab);
+        });
+      });
+    })();
+
+    // ── Farmer Blogs (GET /blogs) ────────────────────────────────────────────
+    const GOVT_INITIATIVES = [
+      {source:'PM-KISAN', category:'Central Scheme', badge:'pill-green', title:'PM-KISAN: ₹6,000/year Direct Income Support', snippet:'Pradhan Mantri Kisan Samman Nidhi provides ₹2,000 every 4 months directly into eligible farmers\' bank accounts. Register via pmkisan.gov.in.', url:'https://pmkisan.gov.in/', tag:'₹6,000/yr Direct Transfer'},
+      {source:'PMFBY', category:'Central Scheme', badge:'pill-blue', title:'PMFBY: Crop Insurance at 2% Premium', snippet:'Pradhan Mantri Fasal Bima Yojana covers crop losses due to natural calamities at a premium as low as 2% for Kharif crops. Enroll before sowing.', url:'https://pmfby.gov.in/', tag:'Crop Insurance'},
+      {source:'Soil Health Card', category:'Central Scheme', badge:'pill-amber', title:'Free Soil Health Cards for Farmers', snippet:'Get your farmland tested for 12 key parameters (N, P, K, pH, Organic Carbon) and receive crop-specific fertilizer recommendations free of cost.', url:'https://soilhealth.dac.gov.in/', tag:'Free Soil Test'},
+      {source:'eNAM', category:'Digital Market', badge:'pill-green', title:'eNAM: Sell Crops Digitally at Best Price', snippet:'National Agriculture Market (eNAM) is an online platform for transparent inter-state trade of agricultural commodities. Access 1000+ mandis nationwide.', url:'https://www.enam.gov.in/', tag:'Online Mandi Access'},
+      {source:'KCC', category:'Credit Scheme', badge:'pill-blue', title:'Kisan Credit Card: 4% Interest Crop Loans', snippet:'Kisan Credit Card (KCC) provides flexible short-term credit for crop production, post-harvest expenses, and allied activities at interest as low as 4% p.a.', url:'https://www.nabard.org/content.aspx?id=591', tag:'4% Credit'},
+      {source:'MIDH', category:'Horticulture', badge:'pill-amber', title:'MIDH: 40-50% Subsidy on Horticulture', snippet:'Mission for Integrated Development of Horticulture (MIDH) provides up to 50% capital subsidy on infrastructure like cold storage, greenhouses, and drip irrigation.', url:'https://midh.gov.in/', tag:'40-50% Subsidy'},
+      {source:'PKVY', category:'Organic Farming', badge:'pill-green', title:'PKVY: ₹50,000/ha for Organic Farming', snippet:'Paramparagat Krishi Vikas Yojana (PKVY) promotes organic farming with ₹50,000 per hectare support over 3 years for input purchase and certification.', url:'https://pgsindia-ncof.gov.in/pkvy/', tag:'Organic Support'},
+      {source:'Krishi Jagran', category:'Agri News', badge:'pill-blue', title:'IPM Strategies for Smallholder Farmers', snippet:'Integrated Pest Management techniques to reduce chemical use while protecting yield. Expert advice from ICAR researchers on crop protection.', url:'https://krishijagran.com/', tag:'Expert Guidance'},
+      {source:'ICAR', category:'Research', badge:'pill-amber', title:'Smart Irrigation Techniques for Water Conservation', snippet:'ICAR-IARI research on precision irrigation scheduling using soil moisture sensors and weather data to save up to 40% water in rice-wheat systems.', url:'https://www.icar.org.in/', tag:'Water Saving Tech'},
+      {source:'TNAU Agritech', category:'Extension', badge:'pill-green', title:'Nutrient Deficiency Diagnosis from Leaf Color', snippet:'Visual field guide to identifying Nitrogen, Phosphorus, Potassium, and Zinc deficiency from foliage color changes — applicable to 20+ crops.', url:'https://agritech.tnau.ac.in/', tag:'Crop Advisory'},
+      {source:'FAO', category:'Global Best Practice', badge:'pill-blue', title:'Save and Grow: Climate-Smart Crop Production', snippet:'FAO guidance on soil health, water use efficiency, agroforestry, and crop diversification for climate-resilient smallholder farming in South Asia.', url:'https://www.fao.org/save-and-grow/en/', tag:'Climate Resilience'},
+      {source:'AgriStack', category:'Digital Initiative', badge:'pill-amber', title:'AgriStack: India\'s Digital Agriculture Ecosystem', snippet:'The government\'s comprehensive digital platform linking farmers with subsidies, insurance, credit, and market access through a unified Farmer ID system.', url:'https://agristack.gov.in/', tag:'Digital ID for Farmers'},
+    ];
+    let blogsLoaded = false;
+    async function loadBlogs() {
+      if (blogsLoaded) return;
+      blogsLoaded = true;
+      try {
+        const r = await fetch(`${API_URL}/blogs`);
+        const j = await r.json();
+        const apiItems = (j.ok && j.data && j.data.length) ? j.data : [];
+        renderBlogs(apiItems, GOVT_INITIATIVES, !apiItems.length);
+      } catch(e) { renderBlogs([], GOVT_INITIATIVES, true); }
+    }
+    function renderBlogs(apiItems, govtItems, offline) {
+      const grid = document.getElementById('blogGrid');
+      // Section: Government Initiatives
+      const govtSection = `
+        <div style="grid-column:1/-1; margin:0 0 10px 0;">
+          <h3 style="font-size:17px;font-weight:700;color:#f8fafc;margin:0 0 4px 0;">🏛️ Government Schemes &amp; Initiatives for Farmers</h3>
+          <p style="font-size:12px;color:var(--text-muted);margin:0;">Active central &amp; state schemes — click any card to apply or learn more</p>
+        </div>
+        ${govtItems.filter(g=>g.category!=='Agri News'&&g.category!=='Extension'&&g.category!=='Global Best Practice').map(a => `
+        <a class="glass-card blog-card" href="${a.url}" target="_blank" rel="noopener" style="border-color:rgba(56,189,248,0.2);">
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;">
+            <span class="blog-src" style="color:#f59e0b;">${a.source}</span>
+            <span class="pill-badge ${a.badge}" style="font-size:10px;padding:2px 7px;">${a.tag}</span>
+          </div>
+          <div class="blog-title">${a.title}</div>
+          <div class="blog-snippet">${a.snippet}</div>
+          <div style="font-size:11px;color:#06b6d4;margin-top:4px;font-weight:600;">🔗 Apply / Learn More →</div>
+        </a>`).join('')}
+        <div style="grid-column:1/-1;margin:18px 0 10px 0;">
+          <h3 style="font-size:17px;font-weight:700;color:#f8fafc;margin:0 0 4px 0;">📰 Agronomy News &amp; Expert Blogs</h3>
+          <p style="font-size:12px;color:var(--text-muted);margin:0;">Latest research, advisory and field-level farming updates</p>
+        </div>`;
+      const newsSection = (offline ? `<div class="glass-card blog-card"><span class="blog-src" style="color:#94a3b8;">Offline / Fallback</span><div class="blog-title">Showing saved reading list — check API URL and refresh.</div></div>` : '')
+        + [...apiItems, ...govtItems.filter(g=>['Agri News','Extension','Global Best Practice'].includes(g.category))].map(a => `
+        <a class="glass-card blog-card" href="${a.url}" target="_blank" rel="noopener">
+          <span class="blog-src">${a.source || 'Article'}</span>
+          <div class="blog-title">${a.title}</div>
+          <div class="blog-snippet">${a.snippet || ''}</div>
+        </a>`).join('');
+      grid.innerHTML = govtSection + newsSection;
+    }
+    document.getElementById('refreshBlogsBtn').addEventListener('click', () => { blogsLoaded = false; loadBlogs(); });
+
+    // ── Disease Library (GET /diseases) ─────────────────────────────────────
+    let PLANT_LIBRARY = {
+      "Tomato": [
+        {disease:"Healthy", healthy:true, cause:"N/A — optimal physiological vigor.", symptoms:"Vibrant uniform green foliage, no lesions.", treatment:"Maintain regular drip irrigation and balanced N-P-K feeding."},
+        {disease:"Early Blight (Alternaria solani)", healthy:false, cause:"Fungal pathogen, favored by warm temps and prolonged leaf wetness.", symptoms:"Concentric target-spot rings on older leaves with yellow halos.", treatment:"Copper fungicide or chlorothalonil; remove lower leaves touching soil."},
+        {disease:"Late Blight (Phytophthora infestans)", healthy:false, cause:"Oomycete pathogen, spreads fast in cool humid weather.", symptoms:"Dark water-soaked lesions with white fuzzy sporulation underneath.", treatment:"Mancozeb or systemic metalaxyl; destroy infected foliage."},
+        {disease:"Bacterial Spot", healthy:false, cause:"Xanthomonas spp., spread by splashing water.", symptoms:"Small dark water-soaked spots drying with yellow borders.", treatment:"Copper hydroxide + mancozeb; sanitize tools."},
+        {disease:"Septoria Leaf Spot", healthy:false, cause:"Septoria lycopersici overwintering in crop debris.", symptoms:"Small circular grey-centered spots with dark margins.", treatment:"Rotate crops 2-3 years; chlorothalonil or copper spray."},
+      ],
+      "Potato": [
+        {disease:"Healthy", healthy:true, cause:"N/A — optimal vigor.", symptoms:"Uniform deep green leaves, no wilt.", treatment:"Standard field management and balanced N fertilization."},
+        {disease:"Early Blight", healthy:false, cause:"Survives in crop debris and volunteer tubers.", symptoms:"Dark angular spots with concentric rings on lower leaves.", treatment:"Preventative mancozeb/azoxystrobin; rotate with non-solanaceous crops."},
+        {disease:"Late Blight", healthy:false, cause:"Highly destructive under cool, damp conditions.", symptoms:"Irregular dark water-soaked lesions expanding from leaf edges.", treatment:"Systemic fungicide (metalaxyl/cymoxanil); destroy infected tubers."},
+      ],
+      "Bell Pepper": [
+        {disease:"Healthy", healthy:true, cause:"N/A — optimal vigor.", symptoms:"Smooth glossy deep-green foliage.", treatment:"Regular watering and organic compost mulching."},
+        {disease:"Bacterial Spot", healthy:false, cause:"Xanthomonas spp., enters through stomata/wounds.", symptoms:"Raised blister spots darkening to greasy black.", treatment:"Copper bactericide + mancozeb; sanitize seed stock."},
+      ],
+      "Corn": [
+        {disease:"Healthy", healthy:true, cause:"N/A", symptoms:"Uniform green blades, no lesions.", treatment:"Maintain nitrogen schedule and adequate spacing."},
+        {disease:"Common Rust", healthy:false, cause:"Windborne fungal spores, cool moist conditions.", symptoms:"Small reddish-brown pustules on both leaf surfaces.", treatment:"Resistant hybrids; foliar fungicide if severe before tasseling."},
+        {disease:"Gray Leaf Spot", healthy:false, cause:"Cercospora zeae-maydis, favored by humidity and residue.", symptoms:"Rectangular tan-to-gray lesions parallel to veins.", treatment:"Crop rotation, residue management, triazole/strobilurin fungicide."},
+      ],
+      "Grape": [
+        {disease:"Healthy", healthy:true, cause:"N/A", symptoms:"Firm green leaves, no discoloration.", treatment:"Standard canopy management and irrigation."},
+        {disease:"Black Rot", healthy:false, cause:"Guignardia bidwellii, warm humid weather.", symptoms:"Tan circular lesions with dark borders and black fruiting bodies.", treatment:"Remove mummified berries; mancozeb spray from bud break."},
+      ],
+      "Apple": [
+        {disease:"Healthy", healthy:true, cause:"N/A", symptoms:"Glossy uniform green leaves.", treatment:"Routine pruning and balanced fertilization."},
+        {disease:"Apple Scab", healthy:false, cause:"Venturia inaequalis, cool wet spring weather.", symptoms:"Olive-green to black velvety spots on leaves and fruit.", treatment:"Captan or myclobutanil sprays timed to bud break."},
+      ],
+    };
+    let activePlant = 'Tomato';
+    async function loadDiseaseLibrary() {
+      renderPlantChips();
+      renderDiseaseGrid();
+      try {
+        const r = await fetch(`${API_URL}/diseases`);
+        const j = await r.json();
+        if (j.ok && j.data) {
+          PLANT_LIBRARY = j.data;
+          activePlant = Object.keys(PLANT_LIBRARY)[0] || activePlant;
+          renderPlantChips();
+          renderDiseaseGrid();
+        }
+      } catch(e) { /* keep embedded fallback */ }
+    }
+    function renderPlantChips() {
+      const row = document.getElementById('plantChips');
+      row.innerHTML = Object.keys(PLANT_LIBRARY).map(p =>
+        `<button class="plant-chip ${p === activePlant ? 'active' : ''}" data-plant="${p}">${p}</button>`
+      ).join('');
+      row.querySelectorAll('.plant-chip').forEach(c => c.addEventListener('click', () => {
+        activePlant = c.dataset.plant; renderPlantChips(); renderDiseaseGrid();
+      }));
+    }
+    function renderDiseaseGrid() {
+      const grid = document.getElementById('diseaseGrid');
+      const items = PLANT_LIBRARY[activePlant] || [];
+      grid.innerHTML = items.map(d => `
+        <div class="glass-card disease-card">
+          <span class="dis-badge ${d.healthy ? 'dis-healthy' : 'dis-disease'}">${d.healthy ? 'HEALTHY' : 'DISEASE'}</span>
+          <h4>${d.disease}</h4>
+          <dl class="result-dl">
+            <dt>Cause</dt><dd>${d.cause || '—'}</dd>
+            <dt>Symptoms</dt><dd>${d.symptoms || '—'}</dd>
+            <dt>Treatment</dt><dd>${d.treatment || '—'}</dd>
+          </dl>
+        </div>`
+      ).join('');
+    }
+
+    // ── Disease Detection (POST /scan_request → poll /scans) ────────────────
+    let selectedLeafFile = null;
+    document.getElementById('pickPhotoBtn').addEventListener('click', () => document.getElementById('leafFile').click());
+    document.getElementById('leafFile').addEventListener('change', () => {
+      const file = document.getElementById('leafFile').files[0];
+      if (!file) return;
+      selectedLeafFile = file;
+      const url = URL.createObjectURL(file);
+      document.getElementById('detectPreview').innerHTML = `<img src="${url}" alt="leaf preview">`;
+      document.getElementById('sendToRoverBtn').disabled = false;
+      document.getElementById('detectResult').innerHTML = `<div class="result-empty">Photo ready — tap "Send to Rover for Analysis".</div>`;
+    });
+    function fileToBase64(file) {
+      return new Promise((resolve, reject) => {
+        const r = new FileReader();
+        r.onload = () => resolve(r.result.split(',')[1]);
+        r.onerror = reject;
+        r.readAsDataURL(file);
+      });
+    }
+    document.getElementById('sendToRoverBtn').addEventListener('click', async () => {
+      if (!selectedLeafFile) return;
+      const btn = document.getElementById('sendToRoverBtn');
+      btn.disabled = true;
+      document.getElementById('detectResult').innerHTML = `<div class="spinner-sm"></div><p style="text-align:center;color:var(--text-muted);margin-top:12px;">Uploading to cloud queue…</p>`;
+      try {
+        const b64 = await fileToBase64(selectedLeafFile);
+        const requestedAt = Date.now();
+        const r = await fetch(`${API_URL}/scan_request`, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({device_id: 'farm-dashboard', image_b64: b64})
+        });
+        const j = await r.json();
+        if (!j.ok) {
+          document.getElementById('detectResult').innerHTML = `<div class="result-empty">Upload failed: ${j.error || 'unknown error'}</div>`;
+          btn.disabled = false; return;
+        }
+        document.getElementById('detectResult').innerHTML = `<div class="spinner-sm"></div><p style="text-align:center;color:var(--text-muted);margin-top:12px;">Queued! Waiting for the rover to analyze it…</p>`;
+        pollForDetectResult(requestedAt);
+      } catch(e) {
+        document.getElementById('detectResult').innerHTML = `<div class="result-empty">Could not reach the AWS API. Check the API URL above.</div>`;
+        btn.disabled = false;
+      }
+    });
+    async function pollForDetectResult(requestedAt, attempt=0) {
+      if (attempt > 30) {
+        document.getElementById('detectResult').innerHTML = `<div class="result-empty">Still waiting — rover may be offline. Check Recent Scans below in a bit, or try again.</div>`;
+        document.getElementById('sendToRoverBtn').disabled = false;
+        return;
+      }
+      try {
+        const r = await fetch(`${API_URL}/scans`);
+        const j = await r.json();
+        if (j.ok && j.scans && j.scans.length) {
+          const top = j.scans[0];
+          const ts = new Date(top.timestamp).getTime();
+          if (ts >= requestedAt - 3000) {
+            renderDetectResult(top);
+            loadMiniScans();
+            document.getElementById('sendToRoverBtn').disabled = false;
+            return;
+          }
+        }
+      } catch(e) {}
+      setTimeout(() => pollForDetectResult(requestedAt, attempt + 1), 3000);
+    }
+    function cleanImageUrl(url) {
+      if (!url) return '';
+      const m = url.match(/scans\/[a-zA-Z0-9_\-\.]+/);
+      if (m) {
+        return `https://agronex-pi-data-nikhil.s3.ap-south-1.amazonaws.com/${m[0]}`;
+      }
+      return url;
+    }
+    function renderDetectResult(d) {
+      const healthy = !!d.is_healthy;
+      const confRaw = d.confidence || 0;
+      const conf = Math.round(confRaw > 1 ? confRaw : confRaw * 100);
+      const imgUrl = cleanImageUrl(d.image_url);
+      document.getElementById('detectResult').innerHTML = `
+        <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:10px;">
+          <span class="pill-badge ${healthy ? 'pill-green' : 'pill-red'}">${healthy ? 'HEALTHY VIGOR' : 'DISEASE DETECTED'}</span>
+          <span style="font-size:18px; font-weight:700; color:#f8fafc;">${d.common_name || d.disease_name || d.label || 'Unknown'}</span>
+        </div>
+        ${imgUrl ? `<img src="${imgUrl}" alt="leaf scan" style="width:100%;border-radius:12px;margin:10px 0;max-height:220px;object-fit:cover;" onerror="this.onerror=null; this.style.display='none';">` : ''}
+        <div class="conf-bar"><div class="conf-fill" style="width:${conf}%;"></div></div>
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px;">Confidence: ${conf}% &nbsp;·&nbsp; ${d.plant_type || d.plant || ''}</div>
+        <dl class="result-dl">
+          <dt>Cause</dt><dd>${d.cause || '—'}</dd>
+          <dt>Treatment</dt><dd>${d.treatment || '—'}</dd>
+        </dl>
+        <div class="saved-ok">✓ Logged to S3 scans_log.json and rover database</div>`;
+    }
+    async function loadMiniScans() {
+      const wrap = document.getElementById('miniScans');
+      try {
+        const r = await fetch(`${API_URL}/scans`);
+        const j = await r.json();
+        if (!j.ok || !j.scans || !j.scans.length) {
+          wrap.innerHTML = `<div class="glass-card mini-thumb">No scans yet</div>`; return;
+        }
+        wrap.innerHTML = j.scans.slice(0, 8).map(s => {
+          const u = cleanImageUrl(s.image_url);
+          return `
+          <div class="glass-card mini-thumb">
+            <img src="${u}" alt="scan" onerror="this.onerror=null; this.src='data:image/svg+xml;utf8,<svg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'100\\' height=\\'100\\' viewBox=\\'0 0 100 100\\'><rect width=\\'100\\' height=\\'100\\' fill=\\'%231e293b\\'/><text x=\\'50%\\' y=\\'50%\\' dominant-baseline=\\'middle\\' text-anchor=\\'middle\\' fill=\\'%2364748b\\' font-size=\\'12\\'>Leaf Scan</text></svg>';">
+            <div style="font-weight:700;color:#f8fafc;">${s.common_name || s.label || 'Scan'}</div>
+            <div style="color:var(--text-muted);font-size:11px;">${s.confidence ? Math.round((s.confidence>1?s.confidence:s.confidence*100))+'%' : ''}</div>
+          </div>`;
+        }).join('');
+      } catch(e) {}
+    }
+  </script>
+</body>
+
+</html>

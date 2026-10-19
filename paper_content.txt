@@ -1,0 +1,109 @@
+﻿[P0|Unknown] AgroNex-Pi: Design and Implementation of an Autonomous Smart Agricultural Robot with Edge-AI Plant Disease Detection, GPS Navigation, and Cloud Telemetry
+[P1|Unknown] Nikhil [Surname], [Co-Author 1], [Co-Author 2], [Co-Author 3]
+[P2|Unknown] Corresponding Author: Nikhil [Surname] (e-mail: [author@institute.edu])
+[P3|Unknown] Department of [Electronics / Computer Engineering]
+[P4|Unknown] [Institute Name], [City, State, Country]
+[P6|Unknown] AbstractΓÇöSmall-scale farms and home gardens lack the labor and expertise to water, mow, and inspect crops on a regular schedule, while plant diseases continue to destroy a significant share of global yield. This paper presents AgroNex-Pi, a low-cost autonomous rover built on the Raspberry Pi 4 that combines five subsystems on one chassis: hysteresis-controlled soil-moisture irrigation, scheduled grass trimming, GPS and compass waypoint navigation, edge-AI plant disease detection using a TensorFlow Lite MobileNetV2 classifier, and live cloud telemetry through a serverless AWS stack. The disease pipeline uses a switchable dual-model design (a five-class custom Tulsi model and an eight-class PlantVillage model) and suppresses false alarms through an image-quality gate, a green-pixel check, a 70% confidence threshold, and 3├ù3 segment majority voting. A multi-threaded Python supervisor built around a finite state machine (FSM) coordinates all tasks, and hardware interlocks prevent the pump, cutter, and drive motors from drawing current at the same time. Experimental results show [INSERT RESULTS: classification accuracy, irrigation response, navigation error, inference latency], indicating that the platform is suitable for small farms, gardens, and nurseries.
+[P7|Unknown] KeywordsΓÇöAgricultural robot; edge AI; TensorFlow Lite; MobileNetV2; plant disease detection; Raspberry Pi; IoT; GPS navigation; smart irrigation; finite state machine; AWS.
+[P8|Heading 1] I. INTRODUCTION
+[P9|Unknown] Agriculture still underpins the economies of many developing nations, yet it faces labor shortages, water scarcity, and fast-spreading plant disease. The Food and Agriculture Organization (FAO) estimates that plant pathogens cause crop losses of roughly 10ΓÇô40% of global production [1]. Early detection is critical, but it normally requires an agronomist to walk the field regularly, which small-scale farmers cannot afford.
+[P10|Unknown] Two developments make an affordable alternative possible. First, lightweight networks such as MobileNetV2 [2], together with the TensorFlow Lite runtime [7], allow neural-network inference on single-board computers like the Raspberry Pi 4 [8] within a watt-level power budget. Second, serverless cloud platforms allow remote monitoring without maintaining a dedicated server.
+[P11|Unknown] This work presents AgroNex-Pi, an autonomous rover that integrates soil sensing, automated irrigation, grass trimming, GPS-guided navigation, and AI-based disease detection in one embedded platform. Tulsi (Holy Basil, Ocimum tenuiflorum), a plant of cultural and medicinal importance in South Asia, is the primary disease-detection target, and a second model covers broader PlantVillage crops [4].
+[P12|Heading 2] A. Contributions
+[P13|Unknown] The principal contributions of this work are:
+[P14|Unknown] 1) A fully integrated autonomous agricultural rover combining five subsystems on a single Raspberry Pi 4.
+[P15|Unknown] 2) A switchable dual-model TFLite architecture supporting a local plant (Tulsi) and broad crops (Tomato, Potato, Bell Pepper).
+[P16|Unknown] 3) A false-positive suppression chain: quality gate, green-pixel check, confidence gate, and 3├ù3 majority voting that requires more than 50% of segments to be diseased.
+[P17|Unknown] 4) A hardware interlock scheme that prevents simultaneous operation of the pump, cutter, and drive motors on the shared 12 V bus.
+[P18|Unknown] 5) A serverless AWS telemetry and command channel (API Gateway, Lambda, S3) for remote monitoring and control from any browser.
+[P19|Heading 1] II. RELATED WORK
+[P20|Unknown] Bac et al. [3] demonstrated robotic harvesting in greenhouses using visual servoing, but required structured environments with known plant geometry. Mohanty et al. [4] showed that deep CNNs trained on PlantVillage exceed 99% accuracy under laboratory conditions, although real-field accuracy is lower because of background clutter and lighting variation. Smartphone diagnosis apps such as Plantix and PlantSnap rely on cloud inference and therefore need connectivity for every prediction, whereas on-device inference removes that dependence. MobileNetV2 [2] uses inverted residuals and depthwise separable convolutions to reach accuracy competitive with much heavier networks at a fraction of the cost.
+[P21|Unknown] IoT irrigation systems have been reported to save 30ΓÇô40% of water compared with timer-based schedules [5], and GPS-guided agricultural robots have shown promise for field navigation [6]. These efforts are typically studied separately. Table I summarizes the gap that AgroNex-Pi addresses.
+[P22|Unknown] TABLE I
+[P23|Unknown] COMPARISON WITH RELATED WORK
+[P25|Heading 1] III. SYSTEM DESIGN AND ARCHITECTURE
+[P26|Heading 2] A. Hardware Platform
+[P27|Unknown] The rover is built around a Raspberry Pi 4 Model B (4 GB, quad-core Cortex-A72 at 1.5 GHz). Analog sensors are digitized by a 16-bit ADS1115 I2C ADC, with a 10-bit MCP3008 SPI ADC as an optional fallback. Two BTS7960 43 A H-bridges drive four 12 V geared motors (left and right pairs in parallel) using 1 kHz software PWM. A 12 V 7 Ah battery powers the system, and an LM2596/XL4016 buck converter supplies 5 V to the Pi. Table II lists the main components.
+[P28|Unknown] TABLE II
+[P29|Unknown] HARDWARE COMPONENTS
+[P32|Unknown] Fig. 1. AgroNex-Pi hardware block and wiring diagram showing Raspberry Pi 4, sensors, relays, and motor drivers.
+[P33|Heading 2] B. GPIO Assignment and Wiring
+[P34|Unknown] All pins use BCM numbering. The I2C bus (GPIO 2/3) carries the ADS1115 (0x48) and HMC5883L (0x1E); the GPS connects to /dev/serial0 (GPIO 15 RX). Table III gives the remaining assignments. All grounds (Pi, BTS7960 boards, and battery negative) share a common star-ground point; floating grounds cause erratic motor behavior and can damage GPIO pins.
+[P35|Unknown] TABLE III
+[P36|Unknown] GPIO PIN ASSIGNMENT (BCM)
+[P38|Heading 2] C. Software Architecture and Finite State Machine
+[P39|Unknown] The software is layered across nine Python modules. Only hardware.py (the hardware abstraction layer) touches GPIO, SPI, I2C, or the camera; controllers (irrigation.py, cutter.py, navigation.py, disease_detect.py) receive hardware objects by dependency injection. Other modules provide persistence (database.py, SQLite), the REST API (app.py, Flask), cloud relay (aws_relay.py), the disease knowledge base (disease_db.py), and centralized constants (config.py).
+[P40|Unknown] The supervisor (main.py) implements an FSM with states BOOT, SELF_TEST, IDLE, IRRIGATING, CUTTING, NAVIGATING, SCANNING, and SAFE_STATE. A failed self-test sends the system to SAFE_STATE, where all actuators are de-energized and only monitoring remains active. Four threads run concurrently: a 3-second control loop, the disease scanner, the Flask server (port 5000), and a watchdog that logs a WATCHDOG_TIMEOUT alert if the control-loop heartbeat is stale for more than 30 s. SIGTERM and SIGINT call an emergency stop that de-energizes all relays and motors before the threads are joined.
+[P42|Unknown] Fig. 2. Multi-threaded software architecture and FSM state diagram.
+[P43|Heading 1] IV. SUBSYSTEM IMPLEMENTATION
+[P44|Heading 2] A. Soil Moisture Sensing and Automated Irrigation
+[P45|Unknown] A capacitive soil sensor on ADS1115 channel A0 is linearized by two-point calibration, with ADS_SOIL_DRY = 21000 (0%, dry air) and ADS_SOIL_WET = 9500 (100%, submerged):
+[P46|Unknown] 	M = 100 ├ù (ADS_DRY ΓêÆ raw) / (ADS_DRY ΓêÆ ADS_WET)	(1)
+[P47|Unknown] Implausible readings are rejected and the cycle is skipped. A hysteresis band governs the pump: it starts when M < 35%, and stops when M ΓëÑ 65% or after the 60 s safety timeout. A 120 s cooldown protects relay contacts and the pump, and the pump is blocked when the reservoir level falls below 20%. The chassis is stopped before the pump is energized, and every cycle (start/end time, duration, start/end moisture, trigger) is logged to SQLite.
+[P48|Heading 2] B. Grass Trimming
+[P49|Unknown] The cutter runs for 30 s every 3600 s. It refuses to start if disabled in configuration or if the pump is active, motors are hard-stopped before the relay is energized to avoid voltage sag on the shared 12 V bus, and the stop command is re-applied on every control-loop tick while cutting. An emergency stop de-energizes the relay immediately.
+[P50|Heading 2] C. GPS Waypoint Navigation
+[P51|Unknown] Navigation uses a NEO-7M GPS (parsing $GPRMC) and an HMC5883L magnetometer with optional declination correction. For the current position (╧åΓéü, ╬╗Γéü) and target (╧åΓéé, ╬╗Γéé), the Haversine formula gives distance d and the initial bearing ╬╕:
+[P52|Unknown] 	a = sin┬▓(╬ö╧å/2) + cos ╧åΓéü cos ╧åΓéé sin┬▓(╬ö╬╗/2);  d = 2R┬╖asin(ΓêÜa)	(2)
+[P53|Unknown] 	╬╕ = atan2(sin ╬ö╬╗ cos ╧åΓéé, cos ╧åΓéü sin ╧åΓéé ΓêÆ sin ╧åΓéü cos ╧åΓéé cos ╬ö╬╗)	(3)
+[P54|Unknown] The heading error is e = ((╬╕ ΓêÆ ╧ê + 540) mod 360) ΓêÆ 180, where ╧ê is the compass heading. The rover moves in short bursts and re-samples sensors after each: it stops motors, rejects GPS fixes older than 5 s, declares the waypoint reached when d Γëñ 2.5 m, pivots for 0.2 s if |e| > 12┬░, and otherwise drives forward for 1.0 s.
+[P55|Heading 2] D. Plant Disease Detection
+[P56|Unknown] Detection runs on demand (dashboard or API) or automatically when at least 15% of the frame is green in HSV space (H 35ΓÇô90, S 40ΓÇô255, V 40ΓÇô255). The pipeline is:
+[P57|Unknown] 1) Quality gate: frames with Laplacian variance below 12.0 (blur) or mean luminance outside 15ΓÇô250 are rejected with RETAKE_NEEDED, which is not a disease alert.
+[P58|Unknown] 2) Segmentation: the 224├ù224 frame (float32, normalized to [0,1]) is divided into a 3├ù3 grid and each segment is classified independently by the TFLite model.
+[P59|Unknown] 3) Voting and confidence: a disease alert is raised only if more than 4 of 9 segments are diseased, each with softmax confidence ΓëÑ 70%; otherwise the status is HEALTHY or LOW_CONFIDENCE.
+[P60|Unknown] 4) Enrichment and alert: the label is matched in the knowledge base for common name, cause, symptoms, and treatment; the buzzer and LED are triggered; and the annotated JPEG and result are stored in SQLite and uploaded to the cloud.
+[P62|Unknown] Fig. 3. Majority voting: disease is declared only when more than 50% of segments are classified as diseased.
+[P63|Heading 2] E. Dual-Model Architecture
+[P64|Unknown] The environment variable AGRONEX_MODEL_PROFILE selects a model at startup: custom (five Tulsi classes: Healthy, Infected, Infested, Wilting, and a background class) or plantvillage (eight classes: Tomato early/late blight and healthy, Potato early/late blight and healthy, Bell Pepper bacterial spot and healthy). The TFLite runtime is loaded through a three-level fallback: tflite_runtime, ai_edge_litert, then full tensorflow.lite.
+[P65|Heading 1] V. AI MODEL TRAINING METHODOLOGY
+[P66|Heading 2] A. Dataset Collection
+[P67|Unknown] The Tulsi dataset was captured with the Raspberry Pi Camera v2 under natural outdoor lighting, with [INSERT NUMBER] images per class organized in class folders. The PlantVillage dataset [4] contains over 54,000 images across 38 plantΓÇôdisease combinations; eight target classes were selected. The dataset was split [INSERT: e.g., 70/15/15] into training, validation, and test sets.
+[P68|Heading 2] B. Model Architecture and Training
+[P69|Unknown] Transfer learning from ImageNet-pretrained MobileNetV2 (224├ù224├ù3, top removed) was used. The classification head is GlobalAveragePooling2D, Dropout(0.4), Dense(128, ReLU), Dropout(0.3), and Dense(N, Softmax). The base was frozen for initial training, then the last 50 layers were unfrozen and fine-tuned at a learning rate of 10Γü╗Γü╡. Augmentation comprised random flip, rotation (┬▒15┬░), zoom (┬▒20%), and brightness variation (┬▒30%). Models are exported as float32 TFLite files together with a label file, and copied to the Pi for deployment.
+[P70|Unknown] TABLE IV
+[P71|Unknown] MODEL TRAINING PARAMETERS
+[P73|Heading 1] VI. CLOUD ARCHITECTURE AND REMOTE MONITORING
+[P74|Unknown] The Pi runs a relay thread that, every 5 s, POSTs telemetry JSON to an AWS API Gateway (ap-south-1) endpoint. A Python 3.11 Lambda function writes the payload to an S3 bucket as state.json. Disease-scan JPEGs (base64) are posted after each inference, and a camera snapshot is uploaded every 60 s. In the reverse direction the Pi polls a /command endpoint every 5 s to receive remote commands (e.g., pump_on) stored by Lambda as command.json. The S3-hosted single-page dashboard fetches state.json every 3 s and provides live tiles, a disease tab with confidence bar and treatment advice, a scan gallery, a Leaflet.js navigation map, a disease library, and manual controls. If internet access is lost, all functions remain available through the local Flask dashboard.
+[P76|Unknown] Fig. 4. AWS serverless architecture: Pi ΓåÆ API Gateway ΓåÆ Lambda ΓåÆ S3, with dashboard polling.
+[P77|Heading 1] VII. SAFETY MECHANISMS
+[P78|Unknown] Because several high-current loads share one battery, safety is implemented at the controller level (Table V). A human safety observer is still mandatory during operation because the rover has no obstacle detection.
+[P79|Unknown] TABLE V
+[P80|Unknown] SAFETY INTERLOCKS
+[P82|Heading 1] VIII. EXPERIMENTAL RESULTS AND EVALUATION
+[P83|Unknown] All experiments were conducted on the physical rover under [INSERT CONDITIONS: indoor/outdoor, lighting, test location].
+[P84|Heading 2] A. Disease Detection Performance
+[P86|Unknown] Fig. 5. Confusion matrix for Tulsi disease classification on the test set.
+[P87|Unknown] TABLE VI
+[P88|Unknown] CLASSIFICATION METRICS
+[P90|Heading 2] B. Irrigation Response
+[P92|Unknown] Fig. 6. Soil moisture over time showing pump-on at 35% and pump-off at 65%.
+[P93|Unknown] The hysteresis controller kept soil moisture between 35% and 65% over [N] irrigation cycles. Mean cycle duration was [X] ┬▒ [Y] s, and [N] pump timeouts occurred during normal operation.
+[P94|Heading 2] C. Navigation Accuracy
+[P96|Unknown] Fig. 7. Planned route (blue) versus actual GPS track (red) for a [N]-waypoint mission.
+[P97|Unknown] TABLE VII
+[P98|Unknown] NAVIGATION PERFORMANCE
+[P100|Heading 2] D. Raspberry Pi 4 Resource Usage
+[P101|Unknown] TABLE VIII
+[P102|Unknown] RASPBERRY PI 4 RESOURCE USAGE
+[P104|Heading 2] E. System Photographs
+[P106|Unknown] Fig. 8. AgroNex-Pi rover showing chassis, sensors, motor drivers, and Raspberry Pi 4.
+[P108|Unknown] Fig. 9. AWS-hosted dashboard displaying live telemetry and disease scan results.
+[P109|Heading 1] IX. DISCUSSION AND LIMITATIONS
+[P110|Unknown] The results indicate that MobileNetV2 transfer learning on locally collected Tulsi images reaches [INSERT: accuracy X%] on the held-out set, with an inference latency of [INSERT: X ms] per frame, which is adequate for near-real-time monitoring on the Raspberry Pi 4. The majority-voting scheme is intended to reduce false alarms from background pixels and partially framed leaves, and the quality gate rejected [INSERT: X%] of frames in outdoor lighting. Hysteresis control kept moisture within the target band with a mean steady-state error of [INSERT: ┬▒X%], and navigation arrived within [INSERT: X.X m] of waypoints, consistent with the ┬▒2ΓÇô5 m accuracy of the NEO-7M.
+[P111|Unknown] Known limitations are: (i) no obstacle detection; (ii) GPS-only navigation with no wheel encoders, so operation is not possible indoors or under dense canopy; (iii) the classifier recognizes only trained plants and will misclassify novel diseases; (iv) only one plant is analyzed per scan; and (v) cloud features require internet access.
+[P112|Heading 1] X. CONCLUSION AND FUTURE WORK
+[P113|Unknown] This paper presented AgroNex-Pi, a low-cost autonomous agricultural robot that integrates irrigation, grass trimming, GPS navigation, edge-AI disease detection, and cloud telemetry on a Raspberry Pi 4. The system achieved [INSERT KEY RESULTS] in real-world testing, and its dual-model design lets a user adapt to different crops by swapping the model and label files without code changes. Future work includes ultrasonic obstacle avoidance, wheel odometry, battery-voltage monitoring, rain-sensor inhibition of irrigation, INT8 quantization for Edge TPU deployment, YOLO-based disease localization, GPS-mapped multi-plant tracking, and over-the-air updates.
+[P114|Heading 1] ACKNOWLEDGMENT
+[P115|Unknown] The authors thank [Guide/Mentor Name] for guidance and support, [Institute Name] for laboratory facilities, and the open-source communities behind TensorFlow, the Raspberry Pi Foundation, and the PlantVillage dataset.
+[P116|Heading 1] REFERENCES
+[P117|Unknown] [1]	Food and Agriculture Organization (FAO), ΓÇ£The State of Food and Agriculture 2021,ΓÇ¥ FAO, Rome, 2021.
+[P118|Unknown] [2]	M. Sandler, A. Howard, M. Zhu, A. Zhmoginov, and L.-C. Chen, ΓÇ£MobileNetV2: Inverted residuals and linear bottlenecks,ΓÇ¥ in Proc. IEEE CVPR, 2018, pp. 4510ΓÇô4520.
+[P119|Unknown] [3]	C. W. Bac, E. J. van Henten, J. Hemming, and Y. Edan, ΓÇ£Harvesting robots for high-value crops,ΓÇ¥ J. Field Robot., vol. 31, no. 6, pp. 888ΓÇô911, 2014.
+[P120|Unknown] [4]	S. P. Mohanty, D. P. Hughes, and M. Salath├⌐, ΓÇ£Using deep learning for image-based plant disease detection,ΓÇ¥ Front. Plant Sci., vol. 7, p. 1419, 2016.
+[P121|Unknown] [5]	A. Khanna and S. Kaur, ΓÇ£Evolution of IoT and its significant impact in the field of precision agriculture,ΓÇ¥ Comput. Electron. Agric., vol. 157, pp. 218ΓÇô231, 2019.
+[P122|Unknown] [6]	L. Emmi et al., ΓÇ£New trends in robotics for agriculture,ΓÇ¥ Sci. World J., vol. 2014, Art. no. 404059, 2014.
+[P123|Unknown] [7]	TensorFlow Lite, ΓÇ£TensorFlow Lite guide,ΓÇ¥ Google, 2023. [Online]. Available: https://www.tensorflow.org/lite
+[P124|Unknown] [8]	Raspberry Pi Foundation, ΓÇ£Raspberry Pi 4 Model B datasheet,ΓÇ¥ 2019. [Online]. Available: https://www.raspberrypi.com
+[P125|Unknown] [9]	Texas Instruments, ΓÇ£ADS1115: Ultra-small, low-power, 16-bit ADC,ΓÇ¥ SBAS444D, 2009.
+[P126|Unknown] [10]	Honeywell, ΓÇ£HMC5883L 3-axis digital compass IC,ΓÇ¥ Datasheet, 2013.

@@ -1,0 +1,27 @@
+[Unit]
+Description=AgroNex-Pi Autonomous Farm Robot Controller
+Documentation=https://github.com/agronex-pi
+After=network-online.target multi-user.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=nikhil
+WorkingDirectory=/home/nikhil/Major project
+
+# Run launcher script immediately on boot (no 20s delay)
+ExecStart=/bin/bash "/home/nikhil/Major project/start_agronex.sh"
+
+# Auto-restart on crash (after 10s cooldown)
+Restart=on-failure
+RestartSec=10s
+
+# Log stdout/stderr to systemd journal
+StandardOutput=journal
+StandardError=journal
+
+# Environment
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target

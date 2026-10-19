@@ -1,0 +1,899 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AgroNex-Pi — Autonomous Rover Dashboard</title>
+    <style>
+        /* Modern Premium Dark Mode Aesthetics (Vanilla CSS, No CDN) */
+        :root {
+            --bg-primary: #0f172a;
+            --bg-card: #1e293b;
+            --bg-card-hover: #334155;
+            --accent-green: #10b981;
+            --accent-amber: #f59e0b;
+            --accent-red: #ef4444;
+            --accent-blue: #3b82f6;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --border-color: #334155;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            padding: 1.5rem;
+            min-height: 100vh;
+        }
+
+        /* Banner */
+        .sim-banner {
+            display: none;
+            background: linear-gradient(90deg, #dc2626, #991b1b);
+            color: #ffffff;
+            text-align: center;
+            padding: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 1px;
+            border-radius: 8px;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 4px 12px rgba(220, 38, 38, 0.4);
+            animation: pulse-banner 2s infinite;
+        }
+
+        @keyframes pulse-banner {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.8; }
+        }
+
+        /* Header Layout */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 1.5rem;
+            border-bottom: 1px solid var(--border-color);
+            margin-bottom: 1.5rem;
+        }
+
+        .header-title h1 {
+            font-size: 1.75rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #34d399, #3b82f6);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .header-title p {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            margin-top: 0.25rem;
+        }
+
+        .header-status {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .badge {
+            padding: 0.4rem 0.8rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .badge-state {
+            background-color: var(--accent-blue);
+            color: #fff;
+        }
+
+        .btn-estop {
+            background-color: var(--accent-red);
+            color: #fff;
+            border: none;
+            padding: 0.6rem 1.2rem;
+            font-weight: 800;
+            border-radius: 8px;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+            transition: transform 0.1s ease, background-color 0.2s;
+        }
+
+        .btn-estop:hover {
+            background-color: #b91c1c;
+            transform: scale(1.03);
+        }
+
+        /* Dashboard Grid Layout */
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.25rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .card {
+            background-color: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 1.25rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .card-title {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .metric-value {
+            font-size: 2.25rem;
+            font-weight: 800;
+            margin-bottom: 0.25rem;
+        }
+
+        .metric-sub {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+
+        /* Soil Gauge Color Coding */
+        .color-red { color: var(--accent-red); }
+        .color-amber { color: var(--accent-amber); }
+        .color-green { color: var(--accent-green); }
+
+        /* Controls Section */
+        .controls-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .btn-ctrl {
+            width: 100%;
+            padding: 0.8rem;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            background-color: var(--bg-card);
+            color: var(--text-primary);
+            font-weight: 600;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn-ctrl:hover {
+            background-color: var(--bg-card-hover);
+        }
+
+        .btn-green { background-color: #065f46; border-color: var(--accent-green); }
+        .btn-green:hover { background-color: #047857; }
+
+        .btn-amber { background-color: #78350f; border-color: var(--accent-amber); }
+        .btn-amber:hover { background-color: #92400e; }
+
+        /* History Tables */
+        .section-title {
+            font-size: 1.2rem;
+            font-weight: 700;
+            margin: 1.5rem 0 1rem 0;
+            color: var(--text-primary);
+        }
+
+        .table-responsive {
+            overflow-x: auto;
+            background-color: var(--bg-card);
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+            font-size: 0.875rem;
+        }
+
+        th {
+            background-color: #0f172a;
+            color: var(--text-secondary);
+            padding: 0.85rem 1rem;
+            font-weight: 600;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        td {
+            padding: 0.85rem 1rem;
+            border-bottom: 1px solid var(--border-color);
+            color: var(--text-primary);
+        }
+
+        tr:last-child td { border-bottom: none; }
+
+        .scan-thumb {
+            width: 48px;
+            height: 48px;
+            border-radius: 6px;
+            object-fit: cover;
+        }
+
+        /* Manual Sensor Checking Window & Diagnostics */
+        .sensor-check-window {
+            background: linear-gradient(145deg, #1e293b, #0f172a);
+            border: 1px solid rgba(56, 189, 248, 0.3);
+            border-radius: 14px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+        }
+
+        .sensor-check-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+            margin-bottom: 1.25rem;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 0.75rem;
+        }
+
+        .sensor-check-header h2 {
+            font-size: 1.2rem;
+            color: #38bdf8;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .diag-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .diag-item {
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 1rem;
+            transition: transform 0.2s, border-color 0.2s;
+        }
+
+        .diag-item:hover {
+            transform: translateY(-2px);
+            border-color: #38bdf8;
+        }
+
+        .diag-label {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            margin-bottom: 0.35rem;
+        }
+
+        .diag-val {
+            font-size: 1.4rem;
+            font-weight: 800;
+            color: #f8fafc;
+        }
+
+        .diag-sub {
+            font-size: 0.75rem;
+            color: #94a3b8;
+            margin-top: 0.25rem;
+        }
+
+        .btn-action-primary {
+            background: linear-gradient(135deg, #0284c7, #0369a1);
+            color: #fff;
+            border: none;
+            padding: 0.65rem 1.25rem;
+            font-weight: 700;
+            border-radius: 8px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.2s ease;
+        }
+
+        .btn-action-primary:hover {
+            background: linear-gradient(135deg, #0369a1, #075985);
+            transform: scale(1.02);
+        }
+
+        .btn-blue {
+            background-color: #0369a1;
+            border-color: #38bdf8;
+        }
+        .btn-blue:hover {
+            background-color: #0284c7;
+        }
+
+        .status-toast {
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            margin-top: 0.75rem;
+            display: none;
+        }
+        .status-toast.show {
+            display: block;
+            background: rgba(16, 185, 129, 0.2);
+            border: 1px solid #10b981;
+            color: #a7f3d0;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="simBanner" class="sim-banner">
+        *** SIMULATION MODE — NO REAL HARDWARE DETECTED ***
+    </div>
+
+    <header>
+        <div class="header-title">
+            <h1>AgroNex-Pi Dashboard</h1>
+            <p>Autonomous Smart Gardening & Plant Disease Classification Robot</p>
+        </div>
+        <div class="header-status">
+            <a href="/final-dashboard" style="color:#10b981; background:rgba(16,185,129,0.15); text-decoration:none; font-size:0.85rem; font-weight:700; padding:0.4rem 0.8rem; border:1px solid #10b981; border-radius:6px;">✨ Glass Theme</a>
+            <a href="/diagrams/project_flowchart.html" target="_blank" style="color:#fbbf24; text-decoration:none; font-size:0.85rem; font-weight:600; padding:0.4rem 0.8rem; border:1px solid #d97706; border-radius:6px;">🔀 Flowchart</a>
+            <a href="/diagrams/system_architecture.html" target="_blank" style="color:#38bdf8; text-decoration:none; font-size:0.85rem; font-weight:600; padding:0.4rem 0.8rem; border:1px solid #0284c7; border-radius:6px;">📐 Block Diagram</a>
+            <a href="/dashboard" style="color:#34d399; text-decoration:none; font-size:0.85rem; font-weight:600; padding:0.4rem 0.8rem; border:1px solid #059669; border-radius:6px;">🌿 Light Theme</a>
+            <span id="fsmState" class="badge badge-state">STATE: BOOT</span>
+            <button class="btn-estop" onclick="triggerEstop()">STOP / E-STOP</button>
+        </div>
+    </header>
+
+    <!-- Telemetry Cards -->
+    <div class="grid-container">
+        <!-- Soil Moisture -->
+        <div class="card">
+            <div class="card-header">
+                <span class="card-title">Soil Moisture</span>
+                <span id="soilBadge" class="badge">--</span>
+            </div>
+            <div id="soilValue" class="metric-value color-amber">--%</div>
+            <div class="metric-sub">Raw ADC: <span id="rawAdc">--</span> | Threshold: 35% - 65%</div>
+        </div>
+
+        <!-- Temperature & Humidity -->
+        <div class="card">
+            <div class="card-header">
+                <span class="card-title">Environment (DHT)</span>
+            </div>
+            <div class="metric-value" style="font-size: 1.75rem;">
+                <span id="tempVal">--</span> °C | <span id="humVal">--</span> %
+            </div>
+            <div class="metric-sub">Ambient Temp & Relative Humidity</div>
+        </div>
+
+        <!-- Actuators State -->
+        <div class="card">
+            <div class="card-header">
+                <span class="card-title">Actuator Relays</span>
+            </div>
+            <div class="metric-sub" style="font-size: 1rem; margin-top: 0.5rem;">
+                Water Pump (CH1): <strong id="pumpState" style="color:var(--text-secondary)">OFF</strong><br>
+                Grass Cutter (CH2): <strong id="cutterState" style="color:var(--text-secondary)">OFF</strong>
+            </div>
+        </div>
+
+        <!-- System Health -->
+        <div class="card">
+            <div class="card-header">
+                <span class="card-title">System Health</span>
+            </div>
+            <div class="metric-sub" style="font-size: 0.95rem; margin-top: 0.5rem;">
+                CPU Temp: <strong id="cpuTemp">--</strong> °C<br>
+                Uptime: <span id="uptimeVal">--</span> seconds<br>
+                Last Sync: <span id="lastSync">--</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- 1. MANUAL SENSOR DATA CHECKING WINDOW -->
+    <div class="sensor-check-window" id="manualSensorWindow">
+        <div class="sensor-check-header">
+            <div>
+                <h2>🔬 Live Sensor Data Checking Window</h2>
+                <p style="color:var(--text-secondary);font-size:0.85rem;margin-top:0.25rem;">
+                    Instant real-time read of all physical sensors on Raspberry Pi & Arduino Uno.
+                </p>
+            </div>
+            <div>
+                <button class="btn-action-primary" onclick="checkSensorsNow()" id="btnCheckSensors">
+                    <span>⚡ CHECK ALL SENSORS NOW</span>
+                </button>
+            </div>
+        </div>
+
+        <div class="diag-grid">
+            <!-- Soil Moisture -->
+            <div class="diag-item">
+                <div class="diag-label">🌿 Soil Moisture Probe</div>
+                <div class="diag-val" id="diagSoilVal">--%</div>
+                <div class="diag-sub">ADS1115 A0 (Raw ADC: <span id="diagSoilRaw">--</span>)</div>
+            </div>
+
+            <!-- Water Level HW-038 -->
+            <div class="diag-item">
+                <div class="diag-label">💧 Reservoir Water Level</div>
+                <div class="diag-val" id="diagWaterVal">--%</div>
+                <div class="diag-sub">ADS1115 A1 (Status: <span id="diagWaterStatus">--</span>)</div>
+            </div>
+
+            <!-- Temperature & Humidity -->
+            <div class="diag-item">
+                <div class="diag-label">🌡️ DHT11 Climate</div>
+                <div class="diag-val"><span id="diagTempVal">--</span>°C | <span id="diagHumVal">--</span>%</div>
+                <div class="diag-sub">GPIO 4 Data Line</div>
+            </div>
+
+            <!-- Compass -->
+            <div class="diag-item">
+                <div class="diag-label">🧭 Magnetic Compass</div>
+                <div class="diag-val" id="diagCompassVal">--°</div>
+                <div class="diag-sub">I2C Bus 1 (HMC5883L/QMC5883L)</div>
+            </div>
+
+            <!-- GPS -->
+            <div class="diag-item">
+                <div class="diag-label">🛰️ NEO-7M GPS</div>
+                <div class="diag-val" style="font-size:1.1rem;" id="diagGpsVal">Searching...</div>
+                <div class="diag-sub">UART Serial (/dev/serial0)</div>
+            </div>
+
+            <!-- Front Ultrasonic -->
+            <div class="diag-item">
+                <div class="diag-label">📏 Front Radar (HC-SR04)</div>
+                <div class="diag-val" id="diagFrontDist">-- cm</div>
+                <div class="diag-sub">Arduino Pin 2 & 8 (Front Servo Pin 10)</div>
+            </div>
+
+            <!-- Rear Ultrasonic -->
+            <div class="diag-item">
+                <div class="diag-label">📏 Rear Radar (HC-SR04)</div>
+                <div class="diag-val" id="diagRearDist">-- cm</div>
+                <div class="diag-sub">Arduino Pin A0 & A1 (Rear Servo Pin 12)</div>
+            </div>
+
+            <!-- Actuator Servo -->
+            <div class="diag-item">
+                <div class="diag-label">🦾 Actuator Probe Servo</div>
+                <div class="diag-val" id="diagActuatorState">RETRACTED (UP)</div>
+                <div class="diag-sub">Arduino Pin 9 (Stowed: 175° | Soil: 15°)</div>
+            </div>
+        </div>
+
+        <div id="sensorCheckStatus" class="status-toast"></div>
+    </div>
+
+    <!-- 2. MANUAL ACTUATOR & RELAY CONTROL HUB -->
+    <div class="card" style="margin-bottom: 1.5rem;">
+        <div class="card-header">
+            <div>
+                <span class="card-title">🎮 Manual Actuator & Relay Control Hub</span>
+                <p style="color:var(--text-secondary);font-size:0.8rem;margin-top:0.25rem;">Direct command override for servos, pump, cutter, and diagnostics.</p>
+            </div>
+            <span id="actuatorBadge" class="badge" style="background:#3b82f6;">READY</span>
+        </div>
+
+        <!-- Soil Probe Actuator Servo Controls -->
+        <div style="margin-bottom:1.25rem;padding-bottom:1rem;border-bottom:1px solid var(--border-color);">
+            <div style="font-size:0.85rem;font-weight:700;color:#38bdf8;text-transform:uppercase;margin-bottom:0.75rem;">
+                🦾 Soil Probe Actuator Servo (Arduino Pin 9)
+            </div>
+            <div class="controls-grid">
+                <button class="btn-ctrl btn-blue" onclick="sendControl('actuator_down')">
+                    ⬇️ Move Actuator DOWN (PROBE_DOWN)
+                </button>
+                <button class="btn-ctrl btn-blue" onclick="sendControl('actuator_up')">
+                    ⬆️ Retract Actuator UP (PROBE_UP)
+                </button>
+                <button class="btn-ctrl btn-green" onclick="sendControl('probe_soil_now')">
+                    🌱 Full Probe Cycle (Down → Sample → Up)
+                </button>
+            </div>
+        </div>
+
+        <!-- 12V Relays (Water Pump & Cutter Motor) -->
+        <div style="margin-bottom:1.25rem;padding-bottom:1rem;border-bottom:1px solid var(--border-color);">
+            <div style="font-size:0.85rem;font-weight:700;color:#a7f3d0;text-transform:uppercase;margin-bottom:0.75rem;">
+                ⚡ 12V Power Relays (Raspberry Pi GPIO 17 & GPIO 27)
+            </div>
+            <div class="controls-grid">
+                <button class="btn-ctrl btn-green" onclick="sendControl('pump_on')">💧 Water Pump ON</button>
+                <button class="btn-ctrl" onclick="sendControl('pump_off')">💧 Water Pump OFF</button>
+                <button class="btn-ctrl btn-amber" onclick="confirmCutterStart()">⚔️ Cutter Motor ON</button>
+                <button class="btn-ctrl" onclick="sendControl('cutter_off')">⚔️ Cutter Motor OFF</button>
+            </div>
+        </div>
+
+        <!-- Camera & Diagnostics -->
+        <div>
+            <div style="font-size:0.85rem;font-weight:700;color:#fcd34d;text-transform:uppercase;margin-bottom:0.75rem;">
+                📸 Vision & Diagnostics
+            </div>
+            <div class="controls-grid">
+                <button class="btn-ctrl btn-green" onclick="sendControl('scan_disease')">🔍 SCAN PLANT FOR DISEASE</button>
+                <button class="btn-ctrl" onclick="checkSensorsNow()">🔄 REFRESH ALL SENSORS</button>
+            </div>
+        </div>
+
+        <div id="controlResultBox" class="status-toast" style="margin-top:1rem;"></div>
+    </div>
+
+    <!-- Live Sensor Chart -->
+    <div class="card" style="margin-top: 1.5rem;">
+        <div class="card-header">
+            <span class="card-title">Soil Moisture History Chart</span>
+        </div>
+        <div class="chart-container">
+            <svg id="sensorChart" width="100%" height="100%" viewBox="0 0 500 150" preserveAspectRatio="none">
+                <path id="chartPath" class="line-moisture" d="M 0 150 L 500 150" />
+            </svg>
+        </div>
+    </div>
+
+    <!-- Disease Log Table -->
+    <div class="section-title">Plant Disease Diagnostics Log</div>
+    <div class="table-responsive">
+        <table>
+            <thead>
+                <tr>
+                    <th>Thumbnail</th>
+                    <th>Timestamp</th>
+                    <th>Diagnosis / Label</th>
+                    <th>Confidence</th>
+                    <th>Quality Flag</th>
+                </tr>
+            </thead>
+            <tbody id="diseaseTableBody">
+                <tr><td colspan="5" style="text-align:center;">No disease scans logged yet.</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Irrigation History Table -->
+    <div class="section-title">Irrigation Run Log</div>
+    <div class="table-responsive">
+        <table>
+            <thead>
+                <tr>
+                    <th>Start Time</th>
+                    <th>End Time</th>
+                    <th>Duration (s)</th>
+                    <th>Start Moisture</th>
+                    <th>End Moisture</th>
+                    <th>Trigger Reason</th>
+                </tr>
+            </thead>
+            <tbody id="irrigationTableBody">
+                <tr><td colspan="6" style="text-align:center;">No irrigation events logged yet.</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        // Vanilla JavaScript Dashboard logic (No CDN required)
+        async function fetchTelemetry() {
+            try {
+                const res = await fetch('/api/sensor');
+                const json = await res.json();
+                if (json.success) {
+                    const data = json.data;
+                    
+                    // Update FSM state & banner
+                    document.getElementById('fsmState').innerText = 'STATE: ' + data.current_state;
+                    if (data.simulation_mode) {
+                        document.getElementById('simBanner').style.display = 'block';
+                    } else {
+                        document.getElementById('simBanner').style.display = 'none';
+                    }
+
+                    // Soil moisture gauge color coding
+                    const moist = data.soil_moisture;
+                    const soilVal = document.getElementById('soilValue');
+                    const soilBadge = document.getElementById('soilBadge');
+                    
+                    if (moist !== null && moist !== undefined) {
+                        soilVal.innerText = moist.toFixed(1) + '%';
+                        if (moist < 40) {
+                            soilVal.className = 'metric-value color-red';
+                            soilBadge.innerText = 'LOW';
+                            soilBadge.style.backgroundColor = 'var(--accent-red)';
+                        } else if (moist <= 60) {
+                            soilVal.className = 'metric-value color-amber';
+                            soilBadge.innerText = 'OPTIMAL';
+                            soilBadge.style.backgroundColor = 'var(--accent-amber)';
+                        } else {
+                            soilVal.className = 'metric-value color-green';
+                            soilBadge.innerText = 'HIGH';
+                            soilBadge.style.backgroundColor = 'var(--accent-green)';
+                        }
+                    } else {
+                        soilVal.innerText = 'ERROR';
+                        soilVal.className = 'metric-value color-red';
+                    }
+
+                    document.getElementById('rawAdc').innerText = data.raw_adc !== null ? data.raw_adc : 'N/A';
+                    document.getElementById('tempVal').innerText = data.temperature !== null ? data.temperature : '--';
+                    document.getElementById('humVal').innerText = data.humidity !== null ? data.humidity : '--';
+
+                    // Diagnostics Window Live Updates
+                    if (document.getElementById('diagSoilVal')) {
+                        document.getElementById('diagSoilVal').innerText = moist !== null ? moist.toFixed(1) + '%' : '--%';
+                        document.getElementById('diagSoilRaw').innerText = data.raw_adc !== null ? data.raw_adc : '--';
+                        document.getElementById('diagWaterVal').innerText = data.water_level !== null ? data.water_level + '%' : '--%';
+                        document.getElementById('diagWaterStatus').innerText = data.water_status || 'OPTIMAL';
+                        document.getElementById('diagTempVal').innerText = data.temperature !== null ? data.temperature : '--';
+                        document.getElementById('diagHumVal').innerText = data.humidity !== null ? data.humidity : '--';
+
+                        if (data.heading_deg !== null && data.heading_deg !== undefined) {
+                            const deg = Math.round(data.heading_deg);
+                            const cardinals = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
+                            const card = cardinals[Math.round(deg / 45) % 8];
+                            document.getElementById('diagCompassVal').innerText = `${deg}° (${card})`;
+                        } else {
+                            document.getElementById('diagCompassVal').innerText = 'Calibrating...';
+                        }
+
+                        if (data.gps && (data.gps.lat || data.gps.latitude)) {
+                            const lat = (data.gps.lat || data.gps.latitude).toFixed(4);
+                            const lon = (data.gps.lon || data.gps.longitude).toFixed(4);
+                            document.getElementById('diagGpsVal').innerText = `${lat}, ${lon}`;
+                        } else {
+                            document.getElementById('diagGpsVal').innerText = 'Searching satellites...';
+                        }
+
+                        if (data.dist_front_cm !== undefined) {
+                            document.getElementById('diagFrontDist').innerText = (data.dist_front_cm >= 900 ? 'Clear (>2m)' : data.dist_front_cm + ' cm');
+                        }
+                        if (data.dist_rear_cm !== undefined) {
+                            document.getElementById('diagRearDist').innerText = (data.dist_rear_cm >= 900 ? 'Clear (>2m)' : data.dist_rear_cm + ' cm');
+                        }
+                        if (data.actuator_state) {
+                            document.getElementById('diagActuatorState').innerText = data.actuator_state;
+                        }
+                    }
+
+                    // Actuator states
+                    const pumpEl = document.getElementById('pumpState');
+                    pumpEl.innerText = data.pump_state ? 'ACTIVE (ON)' : 'OFF';
+                    pumpEl.style.color = data.pump_state ? 'var(--accent-green)' : 'var(--text-secondary)';
+
+                    const cutterEl = document.getElementById('cutterState');
+                    cutterEl.innerText = data.cutter_state ? 'ACTIVE (ON)' : 'OFF';
+                    cutterEl.style.color = data.cutter_state ? 'var(--accent-amber)' : 'var(--text-secondary)';
+
+                    // Health metrics
+                    document.getElementById('cpuTemp').innerText = data.cpu_temp || '--';
+                    document.getElementById('uptimeVal').innerText = data.uptime_seconds || '0';
+                    document.getElementById('lastSync').innerText = new Date().toLocaleTimeString();
+                }
+            } catch (err) {
+                console.error("Telemetry fetch error:", err);
+            }
+        }
+
+        async function checkSensorsNow() {
+            const btn = document.getElementById('btnCheckSensors');
+            const toast = document.getElementById('sensorCheckStatus');
+            if (btn) btn.innerHTML = '<span>⏳ Reading Physical Sensors...</span>';
+            try {
+                const res = await fetch('/api/manual_sensors');
+                const json = await res.json();
+                if (json.success || json.ok) {
+                    const d = json.data;
+                    if (d.soil_moisture !== undefined && d.soil_moisture !== null) {
+                        document.getElementById('diagSoilVal').innerText = Number(d.soil_moisture).toFixed(1) + '%';
+                    }
+                    if (d.raw_adc_soil !== undefined || d.raw_adc !== undefined) {
+                        document.getElementById('diagSoilRaw').innerText = d.raw_adc_soil || d.raw_adc || '--';
+                    }
+                    if (d.water_level !== undefined && d.water_level !== null) {
+                        document.getElementById('diagWaterVal').innerText = Number(d.water_level).toFixed(1) + '%';
+                    }
+                    if (d.water_status) {
+                        document.getElementById('diagWaterStatus').innerText = d.water_status;
+                    }
+                    if (d.temperature !== undefined && d.temperature !== null) {
+                        document.getElementById('diagTempVal').innerText = d.temperature;
+                    }
+                    if (d.humidity !== undefined && d.humidity !== null) {
+                        document.getElementById('diagHumVal').innerText = d.humidity;
+                    }
+                    if (d.heading_deg !== undefined && d.heading_deg !== null) {
+                        const deg = Math.round(d.heading_deg);
+                        document.getElementById('diagCompassVal').innerText = `${deg}°`;
+                    }
+                    if (d.gps && (d.gps.lat || d.gps.latitude)) {
+                        const lat = (d.gps.lat || d.gps.latitude).toFixed(4);
+                        const lon = (d.gps.lon || d.gps.longitude).toFixed(4);
+                        document.getElementById('diagGpsVal').innerText = `${lat}, ${lon}`;
+                    }
+                    if (d.dist_front_cm !== undefined) {
+                        document.getElementById('diagFrontDist').innerText = (d.dist_front_cm >= 900 ? 'Clear (>2m)' : d.dist_front_cm + ' cm');
+                    }
+                    if (d.dist_rear_cm !== undefined) {
+                        document.getElementById('diagRearDist').innerText = (d.dist_rear_cm >= 900 ? 'Clear (>2m)' : d.dist_rear_cm + ' cm');
+                    }
+                    if (d.actuator_probe_angle !== undefined) {
+                        const isUp = d.actuator_probe_angle > 100;
+                        document.getElementById('diagActuatorState').innerText = isUp ? 'RETRACTED (UP)' : 'DEPLOYED (DOWN)';
+                    }
+                    
+                    if (toast) {
+                        toast.className = 'status-toast show';
+                        toast.innerHTML = `✅ <strong>Verified:</strong> All sensors queried live at ${new Date().toLocaleTimeString()}!`;
+                        setTimeout(() => { toast.className = 'status-toast'; }, 5000);
+                    }
+                    fetchTelemetry();
+                }
+            } catch (err) {
+                if (toast) {
+                    toast.className = 'status-toast show';
+                    toast.innerHTML = `⚠️ Sensor query warning: ${err}`;
+                }
+            } finally {
+                if (btn) btn.innerHTML = '<span>⚡ CHECK ALL SENSORS NOW</span>';
+            }
+        }
+
+        async function fetchHistory() {
+            try {
+                // Fetch chart data
+                const chartRes = await fetch('/api/history?limit=30');
+                const chartJson = await chartRes.json();
+                if (chartJson.success && chartJson.data.length > 0) {
+                    renderSvgChart(chartJson.data);
+                }
+
+                // Fetch disease logs
+                const dRes = await fetch('/api/disease_log?limit=10');
+                const dJson = await dRes.json();
+                if (dJson.success) {
+                    renderDiseaseTable(dJson.data);
+                }
+
+                // Fetch irrigation logs
+                const iRes = await fetch('/api/irrigation_events?limit=10');
+                const iJson = await iRes.json();
+                if (iJson.success) {
+                    renderIrrigationTable(iJson.data);
+                }
+            } catch (err) {
+                console.error("History fetch error:", err);
+            }
+        }
+
+        function renderSvgChart(history) {
+            const path = document.getElementById('chartPath');
+            const width = 500;
+            const height = 150;
+            const pts = history.map((item, idx) => {
+                const x = (idx / (history.length - 1 || 1)) * width;
+                const val = item.soil_moisture !== null ? item.soil_moisture : 0;
+                const y = height - ((val / 100) * height);
+                return `${x.toFixed(1)},${y.toFixed(1)}`;
+            });
+            path.setAttribute('d', 'M ' + pts.join(' L '));
+        }
+
+        function renderDiseaseTable(rows) {
+            const tbody = document.getElementById('diseaseTableBody');
+            if (rows.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">No disease scans logged.</td></tr>';
+                return;
+            }
+            tbody.innerHTML = rows.map(r => `
+                <tr>
+                    <td><img class="scan-thumb" src="/${r.image_path}" alt="leaf scan" onerror="this.src=''"/></td>
+                    <td>${r.timestamp.split('T')[1] ? r.timestamp.split('T')[1].substring(0,8) : r.timestamp}</td>
+                    <td><strong>${r.common_name}</strong><br><small style="color:var(--text-secondary)">${r.label}</small></td>
+                    <td>${(r.confidence * 100).toFixed(1)}%</td>
+                    <td><span class="badge" style="background:#334155;">${r.quality_flag}</span></td>
+                </tr>
+            `).join('');
+        }
+
+        function renderIrrigationTable(rows) {
+            const tbody = document.getElementById('irrigationTableBody');
+            if (rows.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">No irrigation events logged.</td></tr>';
+                return;
+            }
+            tbody.innerHTML = rows.map(r => `
+                <tr>
+                    <td>${r.start_time.split('T')[1] ? r.start_time.split('T')[1].substring(0,8) : r.start_time}</td>
+                    <td>${r.end_time.split('T')[1] ? r.end_time.split('T')[1].substring(0,8) : r.end_time}</td>
+                    <td>${r.duration_s}s</td>
+                    <td>${r.moisture_start ? r.moisture_start.toFixed(1) + '%' : '--'}</td>
+                    <td>${r.moisture_end ? r.moisture_end.toFixed(1) + '%' : '--'}</td>
+                    <td><span class="badge" style="background:#065f46;">${r.trigger_type}</span></td>
+                </tr>
+            `).join('');
+        }
+
+        async function sendControl(action) {
+            const box = document.getElementById('controlResultBox');
+            try {
+                const res = await fetch('/api/control', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({action: action})
+                });
+                const json = await res.json();
+                const msg = json.message || json.error || (json.success ? "Command executed" : "Failed");
+                if (box) {
+                    box.className = 'status-toast show';
+                    box.innerHTML = `⚡ <strong>Command [${action}]:</strong> ${msg}`;
+                    setTimeout(() => { box.className = 'status-toast'; }, 5000);
+                } else {
+                    alert(msg);
+                }
+                fetchTelemetry();
+                if (action.includes('probe') || action.includes('actuator')) {
+                    setTimeout(checkSensorsNow, 2200);
+                }
+            } catch (err) {
+                if (box) {
+                    box.className = 'status-toast show';
+                    box.innerHTML = `❌ Error: ${err}`;
+                } else {
+                    alert("Control request failed: " + err);
+                }
+            }
+        }
+
+        function confirmCutterStart() {
+            if (confirm("SAFETY WARNING: Are you sure you want to turn ON the high-speed grass cutting motor?")) {
+                sendControl('cutter_on');
+            }
+        }
+
+        async function triggerEstop() {
+            try {
+                const res = await fetch('/api/estop', {method: 'POST'});
+                const json = await res.json();
+                alert("!!! EMERGENCY STOP EXECUTED !!!");
+                fetchTelemetry();
+            } catch (err) {
+                alert("E-Stop request failed: " + err);
+            }
+        }
+
+        // Poll telemetry every 1 second, history every 5 seconds
+        setInterval(fetchTelemetry, 1000);
+        setInterval(fetchHistory, 5000);
+        fetchTelemetry();
+        fetchHistory();
+    </script>
+</body>
+</html>

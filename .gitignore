@@ -1,0 +1,40 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Large Datasets & Archives (Kaggle raw archive)
+plantdisease.zip
+plantvillage_dataset/
+training_subset/
+changes/
+change2(new)/
+farm_dashboard/
+final dashboard/
+
+# SQLite databases & runtime logs
+*.db
+*.db-shm
+*.db-wal
+logs/
+*.log
+runtime_config.json
+
+# Environment variables & API keys
+.env
+.env.local
+
+# Draft documents & temporary inspection scripts
+*BACKUP.docx
+*PRE_UPDATE.docx
+inspect_*.py
+check_*.py
+dump_paper_details.py
+pinconfig*.pdf
+pin config finall.pdf
+
+# OS / Editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

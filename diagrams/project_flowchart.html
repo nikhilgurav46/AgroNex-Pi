@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AgroNex-Pi — Formal Operational Flowchart</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: #0b1120;
+      color: #f8fafc;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 24px;
+      min-height: 100vh;
+    }
+    header {
+      max-width: 1400px;
+      width: 100%;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      padding: 16px 24px;
+      background: #1e293b;
+      border-radius: 12px;
+      border: 1px solid #334155;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+    }
+    h1 {
+      font-size: 1.35rem;
+      background: linear-gradient(135deg, #34d399, #38bdf8);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .btn-group {
+      display: flex;
+      gap: 10px;
+    }
+    .btn {
+      background: #0284c7;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 0.85rem;
+      transition: all 0.2s;
+    }
+    .btn:hover {
+      background: #0369a1;
+      transform: translateY(-1px);
+    }
+    .btn-green { background: #059669; }
+    .btn-green:hover { background: #047857; }
+    .viewer-card {
+      max-width: 1400px;
+      width: 100%;
+      background: #0f172a;
+      border-radius: 16px;
+      border: 1px solid #334155;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+      padding: 16px;
+      overflow-x: auto;
+    }
+    object {
+      width: 100%;
+      min-width: 900px;
+      height: 2400px;
+      display: block;
+      border-radius: 10px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>AgroNex-Pi: Formal Operational System Flowchart</h1>
+      <div style="font-size: 12px; color: #94a3b8; margin-top: 4px;">
+        Standard Engineering ISO Flowchart Symbols with Conditional Branching &amp; Closed-Loop Failsafes
+      </div>
+    </div>
+    <div class="btn-group">
+      <a href="/final-dashboard" class="btn btn-green">✨ Glass Dashboard</a>
+      <a href="project_flowchart.svg" target="_blank" download class="btn">⬇️ Download SVG</a>
+      <a href="/diagrams/system_architecture.html" class="btn">📐 Hardware Schematic</a>
+    </div>
+  </header>
+
+  <div class="viewer-card">
+    <object type="image/svg+xml" data="project_flowchart.svg"></object>
+  </div>
+</body>
+</html>

@@ -1,0 +1,13 @@
+# AgroNex-Pi runtime dependencies for Raspberry Pi OS Bookworm 64-bit.
+# Install picamera2, OpenCV, RPi.GPIO and spidev from apt first (see README).
+# Keep NumPy below 2.x for TensorFlow/TFLite ecosystem compatibility.
+Flask>=3.0,<4.0
+numpy>=1.26,<2.0
+Pillow>=10.0
+pyserial>=3.5
+smbus2>=0.4.3
+adafruit-circuitpython-dht>=4.0
+requests>=2.28.0
+
+# Install tflite-runtime from the Coral Pi package index after this file:
+# pip install --extra-index-url https://google-coral.github.io/py-repo/ tflite-runtime

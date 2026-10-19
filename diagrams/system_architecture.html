@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AgroNex-Pi System Process & Hardware Block Diagram</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background-color: #0b0f19;
+            color: #f8fafc;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        header {
+            max-width: 1600px;
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            padding: 12px 20px;
+            background: #1e293b;
+            border-radius: 10px;
+            border: 1px solid #334155;
+        }
+        h1 {
+            font-size: 1.25rem;
+            background: linear-gradient(135deg, #34d399, #3b82f6);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .btn {
+            background: #0284c7;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 0.85rem;
+            transition: 0.2s;
+        }
+        .btn:hover { background: #0369a1; }
+        .diagram-container {
+            max-width: 1600px;
+            width: 100%;
+            background: #0f172a;
+            border-radius: 12px;
+            border: 1px solid #334155;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            overflow: hidden;
+            padding: 10px;
+        }
+        svg {
+            display: block;
+            width: 100%;
+            height: auto;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>AgroNex-Pi: Hardware Interconnection & Process Flow Architecture</h1>
+        <div style="display: flex; gap: 10px;">
+            <a href="/dashboard" class="btn" style="background:#059669;">Open Live Dashboard</a>
+            <a href="system_block_diagram.svg" target="_blank" download class="btn">Download SVG</a>
+        </div>
+    </header>
+    <div class="diagram-container">
+        <!-- Embed SVG directly -->
+        <object type="image/svg+xml" data="system_block_diagram.svg" style="width:100%; height:auto;"></object>
+    </div>
+</body>
+</html>
